@@ -50,7 +50,7 @@ object Frame {
   }
 
   def unapply(x: Frame): Option[(Boolean, Byte, Opcode, ByteString)] =
-    Some((x.fin, x.rsv, x.opcode, x.payload))
+    Some(x.fin, x.rsv, x.opcode, x.payload)
 }
 
 sealed trait Frame {
@@ -66,8 +66,6 @@ sealed trait Frame {
     Frame.toFrame(fin, rsv, opcode, payload)
 
   def isControl = opcode.isControl
-
-  //lazy val stringData = payload.utf8String
 }
 
 /**

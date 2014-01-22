@@ -90,7 +90,7 @@ final class FrameParser(frameSizeLimit: Long) {
       return
     }
 
-    // parse and see if we've finished a frame, notice receiver and reset state if true
+    // parse and see if we've finished a frame, notice listener and reset state if true
     state = parse(input, state) match {
       case x @ (InvalidOp | Oversized) => // with error, should drop remaining input
         input = ByteString.empty.iterator
