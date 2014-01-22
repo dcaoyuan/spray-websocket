@@ -55,7 +55,7 @@ object UpgradeSupport {
 /**
  * UpgradableHttp extension
  *
- * UHttp, UHttpExt and UHttpManager is for got HttpListener
+ * UHttp, UHttpExt and UHttpManager is for getting HttpListener
  * to be replaced by UpgradableHttpListener only.
  *
  * Usage:
@@ -64,7 +64,7 @@ object UpgradeSupport {
  *    IO(Http) ! Http.Bind
  */
 object UHttp extends ExtensionKey[UHttpExt] {
-  // upgrades -- clould be in spray.can.Http, since Upgrade is part of of HTTP standard spec.
+  // upgrades -- clould be in spray.can.Http, since Upgrade is part of HTTP spec.
   case class Upgrade(pipelineStage: ServerSettings ⇒ RawPipelineStage[SslTlsContext], resp: Option[HttpResponse]) extends Tcp.Command
   case object Upgraded extends Tcp.Event
 }
