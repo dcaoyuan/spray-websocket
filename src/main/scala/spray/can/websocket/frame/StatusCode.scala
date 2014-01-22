@@ -43,7 +43,7 @@ object StatusCode {
    * these codes is undefined by this protocol.
    */
   def isValidCloseCode(code: Short) = (
-    StatusCode.statusCodes.contains(code) && code != 1005 && code != 1006 && code != 1015
+    statusCodes.contains(code) && code != 1005 && code != 1006 && code != 1015
     || (code >= 3000 && code < 5000))
 
   /**
