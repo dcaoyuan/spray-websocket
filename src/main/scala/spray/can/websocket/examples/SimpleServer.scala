@@ -1,4 +1,4 @@
-package spray.can.websocket.test
+package spray.can.websocket.examples
 
 import akka.io.IO
 import akka.actor.{ ActorSystem, Actor, Props, ActorLogging }
@@ -24,17 +24,17 @@ object SimpleServer extends App with MySslConfiguration {
         log.info("Connected to HttpListener: {}", sender.path)
         sender ! Http.Register(self)
 
-      // accept client request for upgrading to websocket
-      case req @ WebSocket.UpgradeRequest(header) =>
-        log.info("Got websocket upgrade req: {}", req)
+      // when a client request for upgrading to websocket comes in, we send
+      // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
+      case WebSocket.UpgradeRequest(header) =>
         sender ! UHttp.Upgrade(WebSocket.pipelineStage(self), Some(WebSocket.acceptResp(header)))
-      // NOTE to get socket.io connected, we need to send back a connect packet.
+      // NOTE to get socket.io connected, we need to send back a ConnectPacket.
 
       // upgraded successfully
       case UHttp.Upgraded =>
         log.info("Http Upgraded!")
 
-      // just send back frames for Autobahn test suite
+      // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
         //log.info("got {}", x)
         sender ! x

@@ -1,4 +1,4 @@
-package spray.can.websocket.test
+package spray.can.websocket.examples
 
 import java.security.{ SecureRandom, KeyStore }
 import javax.net.ssl.{ KeyManagerFactory, SSLContext, TrustManagerFactory }
