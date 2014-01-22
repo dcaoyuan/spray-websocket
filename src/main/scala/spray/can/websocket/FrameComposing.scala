@@ -26,17 +26,15 @@ object FrameComposing {
           closeWithReason(StatusCode.ProtocolError, "RSV MUST be 0 unless an extension is negotiated that defines meanings for non-zero values.")
 
         case FrameInEvent(x @ Frame(false, _, Opcode.Text | Opcode.Binary, _)) =>
-          if (infinFrame.isEmpty) {
-            infinFrame = Some(x)
-          } else {
-            closeWithReason(StatusCode.ProtocolError, "Expect a continuation frame, but received a text/binary frame.")
+          infinFrame match {
+            case None => infinFrame = Some(x)
+            case _    => closeWithReason(StatusCode.ProtocolError, "Expect a continuation frame, but received a text/binary frame.")
           }
 
         case FrameInEvent(ContinuationFrame(false, _, payload)) =>
-          if (infinFrame.isDefined) {
-            infinFrame = Some(infinFrame.get.copy(payload = infinFrame.get.payload ++ payload))
-          } else {
-            closeWithReason(StatusCode.ProtocolError, "Received a continuation frame, but without previous fragment frame(s).")
+          infinFrame match {
+            case Some(x) => infinFrame = Some(x.copy(payload = x.payload ++ payload))
+            case None    => closeWithReason(StatusCode.ProtocolError, "Received a continuation frame, but without previous fragment frame(s).")
           }
 
         case FrameInEvent(x @ Frame(true, _, Opcode.Continuation | Opcode.Text | Opcode.Binary, payload)) =>
@@ -71,10 +69,8 @@ object FrameComposing {
 
         case ev @ FrameInEvent(CloseFrame(true, _, payload)) =>
           payload.length match {
-            case 0 =>
-              closeWithReason(StatusCode.NormalClosure, "")
-            case 1 =>
-              closeWithReason(StatusCode.ProtocolError, "Received illegal close frame with payload length is 1, the length should be 0 or at least 2.")
+            case 0 => closeWithReason(StatusCode.NormalClosure, "")
+            case 1 => closeWithReason(StatusCode.ProtocolError, "Received illegal close frame with payload length is 1, the length should be 0 or at least 2.")
             case _ =>
               val (code, reason) = payload.splitAt(2)
               val statusCode = code.iterator.getShort(Frame.byteOrder)
