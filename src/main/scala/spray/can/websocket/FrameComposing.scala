@@ -69,7 +69,7 @@ object FrameComposing {
 
         case ev @ FrameInEvent(CloseFrame(true, _, payload)) =>
           payload.length match {
-            case 0 => closeWithReason(StatusCode.NormalClosure, "")
+            case 0 => closeWithReason(StatusCode.NormalClosure)
             case 1 => closeWithReason(StatusCode.ProtocolError, "Received illegal close frame with payload length is 1, the length should be 0 or at least 2.")
             case _ =>
               val (code, reason) = payload.splitAt(2)
