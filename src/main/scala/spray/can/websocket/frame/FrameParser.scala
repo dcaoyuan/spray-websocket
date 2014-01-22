@@ -102,7 +102,7 @@ final class FrameParser(frameSizeLimit: Long) {
         ExpectFin
 
       case ExpectData(0) => // should finish a frame right now too.
-        stateListener(Success(toFrame(fin, rsv, opcode, ByteString.empty)))
+        stateListener(Success(Frame(fin, rsv, opcode, ByteString.empty)))
         ExpectFin
 
       case x => x
@@ -152,7 +152,7 @@ final class FrameParser(frameSizeLimit: Long) {
         maskData(payload, maskingKey)
       }
 
-      Success(toFrame(fin, rsv, opcode, ByteString(payload)))
+      Success(Frame(fin, rsv, opcode, ByteString(payload)))
 
     case x => x
   }

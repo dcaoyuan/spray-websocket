@@ -40,7 +40,7 @@ object Frame {
     ByteString(masked)
   }
 
-  def toFrame(fin: Boolean, rsv: Byte, opcode: Opcode, payload: ByteString) = opcode match {
+  def apply(fin: Boolean, rsv: Byte, opcode: Opcode, payload: ByteString) = opcode match {
     case Opcode.Continuation => ContinuationFrame(fin, rsv, payload)
     case Opcode.Binary       => BinaryFrame(fin, rsv, payload)
     case Opcode.Text         => TextFrame(fin, rsv, payload)
@@ -63,9 +63,9 @@ sealed trait Frame {
            rsv: Byte = this.rsv,
            opcode: Opcode = this.opcode,
            payload: ByteString = this.payload) =
-    Frame.toFrame(fin, rsv, opcode, payload)
+    Frame(fin, rsv, opcode, payload)
 
-  def isControl = opcode.isControl
+  def isControlFrame = opcode.isControl
 }
 
 /**
