@@ -13,9 +13,9 @@ import akka.actor.Props
 import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
-import spray.can.websocket.WebSocket.FrameOutEvent
-import spray.can.websocket.WebSocket.FrameCommand
-import spray.can.websocket.WebSocket.FrameInEvent
+import spray.can.websocket.FrameOutEvent
+import spray.can.websocket.FrameCommand
+import spray.can.websocket.FrameInEvent
 import spray.can.websocket.frame.Frame
 import spray.io.Pipeline
 import spray.io.PipelineContext

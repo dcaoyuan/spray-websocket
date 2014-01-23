@@ -1,7 +1,6 @@
 package spray.can.websocket
 
 import akka.io.Tcp
-import spray.can.websocket.WebSocket.FrameCommand
 import spray.can.websocket.frame.FrameRender
 import spray.io.PipelineContext
 import spray.io.Pipelines

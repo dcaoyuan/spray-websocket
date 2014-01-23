@@ -1,7 +1,6 @@
 package spray.can.websocket
 
 import akka.io.Tcp
-import spray.can.websocket.WebSocket.FrameInEvent
 import spray.can.websocket.frame.StatusCode
 import spray.can.websocket.frame.CloseFrame
 import spray.can.websocket.frame.FrameParser

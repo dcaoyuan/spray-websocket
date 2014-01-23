@@ -1,4 +1,4 @@
-package spray.can.websocket
+package spray.can
 
 import akka.actor.ActorRef
 import akka.io.Tcp
@@ -14,9 +14,8 @@ import spray.http.HttpMethods
 import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.http.StatusCodes
-import scala.concurrent.duration.FiniteDuration
 
-object WebSocket {
+package object websocket {
 
   /**
    * Wraps a frame in a Event going up through the event pipeline
@@ -48,7 +47,7 @@ object WebSocket {
 
   object UpgradeRequest {
     def unapply(req: HttpRequest): Option[UpgradeHeaders] = req match {
-      case HttpRequest(HttpMethods.GET, _, WebSocket.UpgradeHeaders(header), _, _) => Some(header)
+      case HttpRequest(HttpMethods.GET, _, UpgradeHeaders(header), _, _) => Some(header)
       case _ => None
     }
   }

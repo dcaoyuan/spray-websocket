@@ -3,14 +3,13 @@ package spray.can.websocket.examples
 import akka.io.IO
 import akka.actor.{ ActorSystem, Actor, Props, ActorLogging }
 import akka.pattern._
-import java.util.UUID
 import spray.can.Http
 import spray.can.server.UHttp
-import spray.can.websocket.WebSocket
+import spray.can.websocket
 import spray.can.websocket.frame.BinaryFrame
 import spray.can.websocket.frame.Frame
 import spray.can.websocket.frame.TextFrame
-import spray.http.{ HttpHeaders, HttpMethods, HttpRequest, Uri, HttpResponse, StatusCodes, SomeOrigins }
+import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
 import scala.concurrent.duration._
 import HttpHeaders._
 import HttpMethods._
@@ -26,9 +25,8 @@ object SimpleServer extends App with MySslConfiguration {
 
       // when a client request for upgrading to websocket comes in, we send
       // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
-      case WebSocket.UpgradeRequest(header) =>
-        sender ! UHttp.Upgrade(WebSocket.pipelineStage(self), Some(WebSocket.acceptResp(header)))
-      // NOTE to get socket.io connected, we need to send back a ConnectPacket.
+      case websocket.UpgradeRequest(header) =>
+        sender ! UHttp.Upgrade(websocket.pipelineStage(self), Some(websocket.acceptResp(header)))
 
       // upgraded successfully
       case UHttp.Upgraded =>
@@ -36,40 +34,11 @@ object SimpleServer extends App with MySslConfiguration {
 
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
-        //log.info("got {}", x)
         sender ! x
 
-      case x: Frame =>
-      //log.info("Got frame: {}", x)
+      case x: Frame       => // do something
 
-      // --- test code for socket.io etc
-
-      case HttpRequest(GET, Uri.Path("/pingpingping"), _, _, _) =>
-        sender ! HttpResponse(entity = "PONG!PONG!PONG!")
-
-      // some testing code for socket.io
-      case HttpRequest(GET, Uri.Path("/socket.io/1/"), headers, _, _) =>
-        //log.info("socket.io handshake: {}", uri.toRelative)
-        val origins = headers.collectFirst { case HttpHeaders.Origin(xs) => xs; case _ => Nil }.get
-
-        val sessionId = UUID.randomUUID
-        val heartbeatTimeout = 15
-        val connectionClosingTimeout = 10
-        val supportedTransports = List("websocket", "xhr-polling")
-        val entity = List(sessionId, heartbeatTimeout, connectionClosingTimeout, supportedTransports.mkString(",")).mkString(":")
-
-        val socketioHandshakerResp = HttpResponse(
-          status = StatusCodes.OK,
-          entity = entity,
-          headers = List(
-            HttpHeaders.`Access-Control-Allow-Origin`(SomeOrigins(origins)),
-            HttpHeaders.`Access-Control-Allow-Credentials`(true)))
-
-        sender ! socketioHandshakerResp
-
-      case x: HttpRequest =>
-        log.info("Got http req uri = {}", x.uri.toRelative)
-        log.info(x.toString)
+      case x: HttpRequest => // do something
 
     }
   }
@@ -79,13 +48,9 @@ object SimpleServer extends App with MySslConfiguration {
 
   val worker = system.actorOf(Props(classOf[SocketServer]), "websocket")
 
-  IO(UHttp) ! Http.Bind(
-    worker,
-    "localhost",
-    8080)
+  IO(UHttp) ! Http.Bind(worker, "localhost", 8080)
 
   readLine("Hit ENTER to exit ...\n")
   system.shutdown()
   system.awaitTermination()
-
 }

@@ -3,8 +3,6 @@ package spray.can.websocket
 /**
  * Auto reply incoming pings with pongs
  */
-import spray.can.websocket.WebSocket.FrameInEvent
-import spray.can.websocket.WebSocket.FrameOutEvent
 import spray.can.websocket.frame.Opcode
 import spray.can.websocket.frame.PingFrame
 import spray.io.PipelineContext
