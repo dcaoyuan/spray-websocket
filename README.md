@@ -6,6 +6,22 @@ WebSocket for spray-can
 Example:
 
 ```scala
+package spray.can.websocket.examples
+
+import akka.io.IO
+import akka.actor.{ ActorSystem, Actor, Props, ActorLogging }
+import akka.pattern._
+import spray.can.Http
+import spray.can.server.UHttp
+import spray.can.websocket
+import spray.can.websocket.frame.BinaryFrame
+import spray.can.websocket.frame.Frame
+import spray.can.websocket.frame.TextFrame
+import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
+import scala.concurrent.duration._
+import HttpHeaders._
+import HttpMethods._
+
 object SimpleServer extends App with MySslConfiguration {
 
   class SocketServer extends Actor with ActorLogging {
@@ -17,8 +33,8 @@ object SimpleServer extends App with MySslConfiguration {
 
       // when a client request for upgrading to websocket comes in, we send
       // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
-      case WebSocket.UpgradeRequest(header) =>
-        sender ! UHttp.Upgrade(WebSocket.pipelineStage(self), Some(WebSocket.acceptResp(header)))
+      case websocket.UpgradeRequest(header) =>
+        sender ! UHttp.Upgrade(websocket.pipelineStage(self), Some(websocket.acceptResp(header)))
 
       // upgraded successfully
       case UHttp.Upgraded =>
@@ -28,8 +44,9 @@ object SimpleServer extends App with MySslConfiguration {
       case x @ (_: BinaryFrame | _: TextFrame) =>
         sender ! x
 
-      case x: Frame =>
-      //log.info("Got frame: {}", x)
+      case x: Frame       => // do something
+
+      case x: HttpRequest => // do something
 
     }
   }
@@ -39,13 +56,11 @@ object SimpleServer extends App with MySslConfiguration {
 
   val worker = system.actorOf(Props(classOf[SocketServer]), "websocket")
 
-  IO(UHttp) ! Http.Bind(
-    worker,
-    "localhost",
-    8080)
+  IO(UHttp) ! Http.Bind(worker, "localhost", 8080)
 
   readLine("Hit ENTER to exit ...\n")
   system.shutdown()
   system.awaitTermination()
 }
+
 ```
