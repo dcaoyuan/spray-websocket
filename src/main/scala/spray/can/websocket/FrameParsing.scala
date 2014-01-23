@@ -26,12 +26,12 @@ object FrameParsing {
               eventPL(FrameInEvent(frame))
 
             case FrameParser.InvalidOp =>
-              closeWithReason(StatusCode.ProtocolError, "Invalid opcode.")
+              closeWithReason(StatusCode.ProtocolError,
+                "Invalid opcode.")
 
             case FrameParser.Oversized =>
-              closeWithReason(StatusCode.MessageTooBig, "Received a message that is too big for it to process, message size should not exceed " + frameSizeLimit)
-
-            case _ => // wait for data next coming, not finished yet
+              closeWithReason(StatusCode.MessageTooBig,
+                "Received a message that is too big for it to process, message size should not exceed " + frameSizeLimit)
           }
 
         case ev @ TickGenerator.Tick => eventPL(ev) // TODO timeout here?

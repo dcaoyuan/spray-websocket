@@ -24,6 +24,7 @@ import spray.io.RawPipelineStage
 import spray.io.SslTlsContext
 
 object WebSocketFrontend {
+
   def apply(settings: ServerSettings, handler: ActorRef) = new RawPipelineStage[SslTlsContext] {
     def apply(context: SslTlsContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
       /**

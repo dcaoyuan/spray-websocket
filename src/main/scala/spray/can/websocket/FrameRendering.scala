@@ -18,7 +18,6 @@ object FrameRendering {
       }
 
       val eventPipeline = eventPL
-
     }
 
   }
