@@ -4,6 +4,7 @@ import akka.util.ByteString
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.Charset
+import java.io.InputStream
 
 /**
  *
@@ -68,12 +69,21 @@ sealed trait Frame {
   def isControlFrame = opcode.isControl
 }
 
+sealed trait FrameStream {
+  def opcode: Opcode
+  def chunkSize: Int
+  def payload: InputStream
+}
+
 /**
  * Binary frame
  */
 object ContinuationFrame {
   def apply(payload: ByteString): ContinuationFrame = ContinuationFrame(false, 0, payload)
+
+  def apply(fin: Boolean, payload: ByteString): ContinuationFrame = ContinuationFrame(fin, 0, payload)
 }
+
 case class ContinuationFrame(fin: Boolean, rsv: Byte, payload: ByteString) extends Frame {
   def opcode = Opcode.Continuation
 }
@@ -83,8 +93,19 @@ case class ContinuationFrame(fin: Boolean, rsv: Byte, payload: ByteString) exten
  */
 object BinaryFrame {
   def apply(payload: ByteString): BinaryFrame = BinaryFrame(true, 0, payload)
+
+  def apply(fin: Boolean, payload: ByteString): BinaryFrame = BinaryFrame(fin, 0, payload)
 }
+
 case class BinaryFrame(fin: Boolean, rsv: Byte, payload: ByteString) extends Frame {
+  def opcode = Opcode.Binary
+}
+
+object BinaryFrameStream {
+  def apply(payload: InputStream): BinaryFrameStream = BinaryFrameStream(payload)
+}
+
+case class BinaryFrameStream(chunkSize: Int, payload: InputStream) extends FrameStream {
   def opcode = Opcode.Binary
 }
 
@@ -93,8 +114,19 @@ case class BinaryFrame(fin: Boolean, rsv: Byte, payload: ByteString) extends Fra
  */
 object TextFrame {
   def apply(payload: ByteString): TextFrame = TextFrame(true, 0, payload)
+
+  def apply(fin: Boolean, payload: ByteString): TextFrame = TextFrame(fin, 0, payload)
 }
+
 case class TextFrame(fin: Boolean, rsv: Byte, payload: ByteString) extends Frame {
+  def opcode = Opcode.Text
+}
+
+object TextFrameStream {
+  def apply(payload: InputStream): TextFrameStream = TextFrameStream(payload)
+}
+
+case class TextFrameStream(chunkSize: Int, payload: InputStream) extends FrameStream {
   def opcode = Opcode.Text
 }
 

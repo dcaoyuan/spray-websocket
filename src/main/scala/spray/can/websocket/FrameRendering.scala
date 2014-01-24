@@ -14,6 +14,7 @@ object FrameRendering {
 
       val commandPipeline: CPL = {
         case FrameCommand(frame) => commandPL(Tcp.Write(FrameRender.render(frame, maskingKey)))
+        case FrameStreamCommand(frame) => FrameRender.chunkRender(frame).foreach(frame => commandPL(Tcp.Write(FrameRender.render(frame, maskingKey))))
         case cmd                 => commandPL(cmd)
       }
 

@@ -39,8 +39,28 @@ object FrameRender {
     builder.result
   }
 
-  def chunkRender(payload: ByteString, fragSize: Int, maskingKey: Array[Byte]) {
+  def chunkRender(frame: FrameStream): Stream[Frame] = {
+    def buildFrame(first: Boolean, frame: FrameStream, payload: ByteString) = {
+      if (first) {
+        frame match {
+          case f: TextFrameStream => TextFrame(payload)
+          case f: BinaryFrameStream => BinaryFrame(payload)
+        }
+      } else {
+        ContinuationFrame(payload)
+      }
+    }
 
+    def fromFrameStream(first: Boolean, frame: FrameStream): Stream[Frame] = {
+      val buffer = new Array[Byte](frame.chunkSize)
+      frame.payload.read(buffer) match {
+        case -1 if first => Stream.empty // error
+        case -1 => Stream(ContinuationFrame(fin = true, ByteString.empty))
+        case len => buildFrame(first, frame, ByteString(buffer.slice(0, len))) #:: fromFrameStream(false, frame)
+      }
+    }
+
+    fromFrameStream(true, frame)
   }
 
 }

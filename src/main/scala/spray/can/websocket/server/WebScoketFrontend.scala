@@ -13,10 +13,8 @@ import akka.actor.Props
 import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
-import spray.can.websocket.FrameOutEvent
-import spray.can.websocket.FrameCommand
-import spray.can.websocket.FrameInEvent
-import spray.can.websocket.frame.Frame
+import spray.can.websocket.{FrameStreamCommand, FrameOutEvent, FrameCommand, FrameInEvent}
+import spray.can.websocket.frame.{FrameStream, Frame}
 import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -53,6 +51,7 @@ object WebSocketFrontend {
     class HandlerResponseReceiver(context: PipelineContext) extends Actor {
       def receive = {
         case x: Frame  => context.actorContext.self ! FrameCommand(x)
+        case x: FrameStream => context.actorContext.self ! FrameStreamCommand(x)
         case Tcp.Close => context.actorContext.self ! Tcp.Close
       }
     }

@@ -4,7 +4,7 @@ import akka.actor.ActorRef
 import akka.io.Tcp
 import java.security.MessageDigest
 import spray.can.server.ServerSettings
-import spray.can.websocket.frame.Frame
+import spray.can.websocket.frame.{FrameStream, Frame}
 import spray.can.websocket.server.WebSocketFrontend
 import spray.http.HttpHeader
 import spray.http.HttpHeaders
@@ -28,6 +28,8 @@ package object websocket {
    * Wraps a frame in a Command going down through the command pipeline
    */
   case class FrameCommand(frame: Frame) extends Tcp.Command
+
+  case class FrameStreamCommand(frame: FrameStream) extends Tcp.Command
 
   /**
    * pipeline stage of websocket
