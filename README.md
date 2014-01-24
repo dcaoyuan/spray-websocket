@@ -6,6 +6,7 @@ WebSocket for spray-can
 Example:
 
 ```scala
+
 package spray.can.websocket.examples
 
 import akka.io.IO
@@ -24,8 +25,10 @@ import HttpMethods._
 
 object SimpleServer extends App with MySslConfiguration {
 
-  class SocketServer extends Actor with ActorLogging {
-    def receive = {
+  class WebSocketServer extends Actor with ActorLogging {
+    def receive = upgradable orElse businessLogic
+
+    def upgradable: Receive = {
       // when a new connection comes in we register ourselves as the connection handler
       case Http.Connected(remoteAddress, localAddress) =>
         log.info("Connected to HttpListener: {}", sender.path)
@@ -39,7 +42,9 @@ object SimpleServer extends App with MySslConfiguration {
       // upgraded successfully
       case UHttp.Upgraded =>
         log.info("Http Upgraded!")
+    }
 
+    def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
         sender ! x
@@ -47,14 +52,13 @@ object SimpleServer extends App with MySslConfiguration {
       case x: Frame       => // do something
 
       case x: HttpRequest => // do something
-
     }
   }
 
   implicit val system = ActorSystem()
   import system.dispatcher
 
-  val worker = system.actorOf(Props(classOf[SocketServer]), "websocket")
+  val worker = system.actorOf(Props(classOf[WebSocketServer]), "websocket")
 
   IO(UHttp) ! Http.Bind(worker, "localhost", 8080)
 
