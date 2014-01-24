@@ -27,6 +27,10 @@ object FrameComposing {
             "RSV MUST be 0 unless an extension is negotiated that defines meanings for non-zero values.")
           infinFrames = Nil
 
+        case FrameInEvent(Frame(false, _, Opcode.Close | Opcode.Ping | Opcode.Pong, _)) =>
+          closeWithReason(StatusCode.ProtocolError, "Receive control frame with fin is false.")
+          infinFrames = Nil
+
         case FrameInEvent(x @ Frame(false, _, Opcode.Text | Opcode.Binary, _)) =>
           infinFrames match {
             case Nil =>
@@ -46,35 +50,38 @@ object FrameComposing {
               infinFrames = x :: infinFrames
           }
 
-        case FrameInEvent(x @ Frame(true, _, Opcode.Continuation | Opcode.Text | Opcode.Binary, payload)) =>
-          if (x.opcode == Opcode.Continuation && infinFrames.isEmpty) {
+        // --- final data frames
 
-            closeWithReason(StatusCode.ProtocolError,
-              "Received a final continuation frame, but without previous fragment frame(s).")
+        case FrameInEvent(x @ Frame(true, _, (Opcode.Continuation | Opcode.Text | Opcode.Binary), _)) =>
+          (infinFrames, x.opcode) match {
 
-          } else if (x.opcode != Opcode.Continuation && infinFrames.nonEmpty) {
+            case (Nil, Opcode.Continuation) =>
+              closeWithReason(StatusCode.ProtocolError,
+                "Received a final continuation frame, but without previous fragment frame(s).")
 
-            closeWithReason(StatusCode.ProtocolError,
-              "Received a final text/binary frame, but there has been fragment frame(s) existed and not finished yet.")
+            case (_ :: _, Opcode.Text | Opcode.Binary) =>
+              closeWithReason(StatusCode.ProtocolError,
+                "Received a final text/binary frame, but there has been fragment frame(s) existed and not finished yet.")
 
-          } else if (infinFrames.foldLeft(x.payload.length)(_ + _.payload.length) > messageSizeLimit) {
-            closeWithReason(StatusCode.MessageTooBig,
-              "Received a message that is too big for it to process, message size should not exceed " + messageSizeLimit)
-
-          } else {
-
-            val head :: tail = (x :: infinFrames).reverse
-            val finalFrame = tail.foldLeft(head) { (acc, cont) => acc.copy(payload = acc.payload ++ cont.payload) }
-            if (finalFrame.opcode == Opcode.Text && !UTF8Validate.isValidate(finalFrame.payload)) {
-              closeWithReason(StatusCode.InvalidFramePayloadData,
-                "non-UTF-8 [RFC3629] data within a text message.")
-            } else {
-              eventPL(FrameInEvent(finalFrame.copy(fin = true, payload = finalFrame.payload.compact)))
-            }
+            case _ => // (Nil, Opcode.Text | Opcode.Binary) | (_ :: _, Opcode.Continuation)
+              if (infinFrames.foldLeft(x.payload.length)(_ + _.payload.length) > messageSizeLimit) {
+                closeWithReason(StatusCode.MessageTooBig,
+                  "Received a message that is too big for it to process, message size should not exceed " + messageSizeLimit)
+              } else {
+                val head :: tail = (x :: infinFrames).reverse
+                val finalFrame = tail.foldLeft(head) { (acc, cont) => acc.copy(payload = acc.payload ++ cont.payload) }
+                if (finalFrame.opcode == Opcode.Text && !UTF8Validate.isValidate(finalFrame.payload)) {
+                  closeWithReason(StatusCode.InvalidFramePayloadData,
+                    "non-UTF-8 [RFC3629] data within a text message.")
+                } else {
+                  eventPL(FrameInEvent(finalFrame.copy(fin = true, payload = finalFrame.payload.compact)))
+                }
+              }
 
           }
-
           infinFrames = Nil
+
+        // --- final control frames
 
         case FrameInEvent(Frame(true, _, opcode, payload)) if opcode.isControl && payload.length > 125 =>
           closeWithReason(StatusCode.ProtocolError,
@@ -95,25 +102,19 @@ object FrameComposing {
               } else {
                 if (!UTF8Validate.isValidate(reason)) {
                   closeWithReason(StatusCode.ProtocolError,
-                    "Closing reason is not UTF-8 encoded.")
+                    "non-UTF-8 [RFC3629] data within a text message.")
                 } else {
-                  closeWithReason(StatusCode.NormalClosure,
-                    reason.utf8String)
+                  closeWithReason(StatusCode.NormalClosure, reason.utf8String)
                 }
               }
           }
           infinFrames = Nil
-          eventPL(ev)
 
         case ev @ FrameInEvent(Frame(true, _, Opcode.Ping | Opcode.Pong, _)) =>
           eventPL(ev)
 
-        case FrameInEvent(_) =>
-          closeWithReason(StatusCode.ProtocolError,
-            "Closed due to wrong frames order.")
-          infinFrames = Nil
-
-        case ev => eventPL(ev)
+        case ev =>
+          eventPL(ev)
       }
 
       /**
