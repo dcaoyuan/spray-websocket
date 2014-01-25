@@ -39,7 +39,7 @@ object FrameRender {
     builder.result
   }
 
-  def chunkRender(frame: FrameStream): Stream[Frame] = {
+  def streamingRender(frame: FrameStream): Stream[Frame] = {
     def buildFrame(first: Boolean, frame: FrameStream, payload: ByteString) = {
       if (first) {
         frame match {
@@ -53,10 +53,14 @@ object FrameRender {
 
     def fromFrameStream(first: Boolean, frame: FrameStream): Stream[Frame] = {
       val buffer = new Array[Byte](frame.chunkSize)
-      frame.payload.read(buffer) match {
-        case -1 if first => Stream.empty // error
-        case -1 => Stream(ContinuationFrame(fin = true, ByteString.empty))
-        case len => buildFrame(first, frame, ByteString(buffer.slice(0, len))) #:: fromFrameStream(false, frame)
+      try {
+        frame.payload.read(buffer) match {
+          case -1 if first => Stream.empty // error
+          case -1 => Stream(ContinuationFrame(fin = true, ByteString.empty))
+          case len => buildFrame(first, frame, ByteString(buffer.slice(0, len))) #:: fromFrameStream(false, frame)
+        }
+      } catch {
+        case e => Stream.empty
       }
     }
 
