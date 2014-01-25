@@ -19,7 +19,8 @@ object FrameRendering {
           if (frame.opcode == Opcode.Close) {
             commandPL(Tcp.Close)
           }
-        case FrameStreamCommand(frame) => FrameRender.chunkRender(frame).foreach(frame => commandPL(Tcp.Write(FrameRender.render(frame, maskingKey))))
+        case FrameStreamCommand(frameStream) => FrameRender.streamingRender(frameStream).foreach(f => commandPL(Tcp.Write(FrameRender.render(f, maskingKey))))
+            frameStream.close
         case cmd                       => commandPL(cmd)
       }
 

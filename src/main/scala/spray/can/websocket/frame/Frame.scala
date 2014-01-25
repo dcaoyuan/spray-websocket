@@ -4,7 +4,7 @@ import akka.util.ByteString
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.Charset
-import java.io.InputStream
+import java.io.{Closeable, InputStream}
 
 /**
  *
@@ -69,10 +69,20 @@ sealed trait Frame {
   def isControl = opcode.isControl
 }
 
-sealed trait FrameStream {
+sealed trait FrameStream extends Closeable {
   def opcode: Opcode
   def chunkSize: Int
   def payload: InputStream
+
+  def close {
+    if (payload != null) {
+      try {
+        payload.close
+      } catch {
+        case _ =>
+      }
+    }
+  }
 }
 
 /**
