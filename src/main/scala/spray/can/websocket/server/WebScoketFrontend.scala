@@ -13,8 +13,8 @@ import akka.actor.Props
 import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
-import spray.can.websocket.{ ControlEvent, FrameStreamCommand, FrameOutEvent, FrameCommand, FrameInEvent }
-import spray.can.websocket.frame.{ FrameStream, Frame, Opcode, CloseFrame, PongFrame, PingFrame }
+import spray.can.websocket.{ FrameStreamCommand, FrameOutEvent, FrameCommand, FrameInEvent }
+import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PongFrame, PingFrame, ContinuationFrame }
 import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -37,20 +37,17 @@ object WebSocketFrontend {
 
       val eventPipeline: EPL = {
 
-        // we have to use ControlEvent to keep message order by sending them to handler then bounce back
-        // TODO we need better solution
-        case FrameOutEvent(frame: CloseFrame) => commandPL(Pipeline.Tell(handler, ControlEvent(frame), receiverRef))
-        case FrameOutEvent(frame: PongFrame)  => commandPL(Pipeline.Tell(handler, ControlEvent(frame), receiverRef))
-        case FrameOutEvent(frame)             => commandPL(FrameCommand(frame))
+        case FrameOutEvent(frame)                   => commandPL(FrameCommand(frame))
 
-        case FrameInEvent(frame: CloseFrame)  => commandPL(FrameCommand(frame))
-        case FrameInEvent(frame: PongFrame)   => // Server should not receive pong frame, just ignore it
-        case FrameInEvent(frame: PingFrame)   => // We'll auto pong it, does not need to tell handler
-        case FrameInEvent(frame)              => commandPL(Pipeline.Tell(handler, frame, receiverRef))
+        case FrameInEvent(frame: CloseFrame)        => commandPL(FrameCommand(frame))
+        case FrameInEvent(frame: PongFrame)         => // Server should not receive pong frame, just ignore it
+        case FrameInEvent(frame: PingFrame)         => // We'll auto pong it, does not need to tell handler
+        case FrameInEvent(frame: ContinuationFrame) => // We should have composed it during lower stage. Anyway, does not need to tell handler
+        case FrameInEvent(frame)                    => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
-        case ev: Tcp.ConnectionClosed         => commandPL(Pipeline.Tell(handler, ev, receiverRef))
-        case ev @ UHttp.Upgraded              => commandPL(Pipeline.Tell(handler, ev, receiverRef))
-        case ev                               => eventPL(ev)
+        case ev @ UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case ev: Tcp.ConnectionClosed               => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case ev                                     => eventPL(ev)
       }
     }
 

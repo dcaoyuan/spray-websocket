@@ -7,6 +7,8 @@ Example:
 
 ```scala
 
+package spray.can.websocket.examples
+
 import akka.actor.{ ActorSystem, Actor, Props, ActorLogging }
 import akka.io.IO
 import akka.io.Tcp
@@ -40,10 +42,6 @@ object SimpleServer extends App with MySslConfiguration {
       // upgraded successfully
       case UHttp.Upgraded =>
         log.info("Http Upgraded!")
-
-      // must bounce frame in control event
-      case websocket.ControlEvent(frame) =>
-        sender ! frame
     }
 
     def businessLogic: Receive = {

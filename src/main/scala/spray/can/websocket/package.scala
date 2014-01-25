@@ -25,11 +25,6 @@ package object websocket {
   case class FrameOutEvent(frame: Frame) extends FrameEvent
 
   /**
-   * Notice handler there is a control frame to be out, the handler must bounce frame back
-   */
-  case class ControlEvent(frame: Frame) extends FrameEvent
-
-  /**
    * Wraps a frame in a Command going down through the command pipeline
    */
   case class FrameCommand(frame: Frame) extends Tcp.Command

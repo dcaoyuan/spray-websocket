@@ -33,10 +33,6 @@ object SimpleServer extends App with MySslConfiguration {
       // upgraded successfully
       case UHttp.Upgraded =>
         log.info("Http Upgraded!")
-
-      // must bounce frame in control event
-      case websocket.ControlEvent(frame) =>
-        sender ! frame
     }
 
     def businessLogic: Receive = {
@@ -44,12 +40,7 @@ object SimpleServer extends App with MySslConfiguration {
       case x @ (_: BinaryFrame | _: TextFrame) =>
         sender ! x
 
-      case x: Frame       => // do something
-
       case x: HttpRequest => // do something
-
-      case x: Tcp.ConnectionClosed =>
-        log.info("Tcp.ConnectionClosed")
 
     }
   }
