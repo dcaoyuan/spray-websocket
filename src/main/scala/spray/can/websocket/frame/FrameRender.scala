@@ -43,7 +43,7 @@ object FrameRender {
     def buildFrame(first: Boolean, frame: FrameStream, payload: ByteString) = {
       if (first) {
         frame match {
-          case f: TextFrameStream => TextFrame(payload)
+          case f: TextFrameStream   => TextFrame(payload)
           case f: BinaryFrameStream => BinaryFrame(payload)
         }
       } else {
@@ -56,11 +56,11 @@ object FrameRender {
       try {
         frame.payload.read(buffer) match {
           case -1 if first => Stream.empty // error
-          case -1 => Stream(ContinuationFrame(fin = true, ByteString.empty))
-          case len => buildFrame(first, frame, ByteString(buffer.slice(0, len))) #:: fromFrameStream(false, frame)
+          case -1          => Stream(ContinuationFrame(fin = true, ByteString.empty))
+          case len         => buildFrame(first, frame, ByteString(buffer.slice(0, len))) #:: fromFrameStream(false, frame)
         }
       } catch {
-        case e => Stream.empty
+        case e: Throwable => Stream.empty
       }
     }
 

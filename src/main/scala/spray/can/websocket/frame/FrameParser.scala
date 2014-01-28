@@ -5,23 +5,39 @@ import akka.util.ByteString
 import scala.annotation.tailrec
 
 object FrameParser {
+  var frameSizeLimit: Long = Long.MaxValue
 
   /**
    * nBytes   expected number of bytes of this state
    */
   sealed trait State { def nBytes: Long }
+
   case object ExpectFin extends State { def nBytes = 1 }
   case object ExpectMasked extends State { def nBytes = 1 }
-  final case class ExpectPayloadLen(nBytes: Long) extends State
+
+  object ExpectPayloadLen {
+    def unapply(x: ExpectPayloadLen): Option[Long] = Some(x.nBytes)
+  }
+  sealed trait ExpectPayloadLen extends State
+  case object ExpectShortPayloadLen extends ExpectPayloadLen { def nBytes = 2 }
+  case object ExpectLongPayloadLen extends ExpectPayloadLen { def nBytes = 8 }
+
   case object ExpectMaskingKey extends State {
     def nBytes = 4
     def unapply(x: this.type): Option[Long] = Some(x.nBytes)
   }
   final case class ExpectData(nBytes: Long) extends State
-  final case class Success(frame: Frame) extends State { def nBytes = 0 }
-  case object InvalidOp extends State { def nBytes = 0 }
-  case object Oversized extends State { def nBytes = 0 }
 
+  final case class Success(frame: Frame) extends State { def nBytes = 0 }
+
+  object Failure {
+    def unapply(x: Failure): Option[(StatusCode, String)] = Some(x.statusCode, x.reason)
+  }
+  sealed abstract class Failure(val statusCode: StatusCode, val reason: String) extends State { def nBytes = 0 }
+  case object InvalidOpcode extends Failure(StatusCode.ProtocolError, "Invalid opcode.")
+  case object FalseFinControlFrame extends Failure(StatusCode.ProtocolError, "Receive control frame with false fin.")
+  case object OversizedControlFrame extends Failure(StatusCode.ProtocolError, "All control frames MUST have a payload length of 125 bytes or less and MUST NOT be fragmented.")
+  case object OversizedDataFrame extends Failure(StatusCode.MessageTooBig, "Received a message that is too big for it to process, message size should not exceed " + frameSizeLimit)
 }
 
 /*-
@@ -44,7 +60,7 @@ object FrameParser {
   |                     Payload Data continued ...                |
   +---------------------------------------------------------------+
  */
-final class FrameParser(frameSizeLimit: Long) {
+final class FrameParser {
   import Frame._
   import FrameParser._
 
@@ -92,7 +108,7 @@ final class FrameParser(frameSizeLimit: Long) {
 
     // parse and see if we've finished a frame, notice listener and reset state if true
     state = parse(input, state) match {
-      case x @ (InvalidOp | Oversized) => // with error, should drop remaining input
+      case x: Failure => // with error, should drop remaining input
         input = ByteString.empty.iterator
         stateListener(x)
         ExpectFin
@@ -122,7 +138,9 @@ final class FrameParser(frameSizeLimit: Long) {
 
       opcode = Opcode.opcodeFor(b0 & 0xf)
       if (opcode.isInvalid) {
-        InvalidOp
+        InvalidOpcode
+      } else if (opcode.isControl && !fin) {
+        FalseFinControlFrame
       } else {
         ExpectMasked
       }
@@ -132,8 +150,18 @@ final class FrameParser(frameSizeLimit: Long) {
       isMasked = ((b1 >> 7) & 1) == 1
 
       (b1 & 127) match {
-        case 126 => ExpectPayloadLen(2)
-        case 127 => ExpectPayloadLen(8)
+        case 126 =>
+          if (opcode.isControl) {
+            OversizedControlFrame
+          } else {
+            ExpectShortPayloadLen
+          }
+        case 127 =>
+          if (opcode.isControl) {
+            OversizedControlFrame
+          } else {
+            ExpectLongPayloadLen
+          }
         case len => parsePayloadLen(input, 0, len)
       }
 
@@ -165,7 +193,7 @@ final class FrameParser(frameSizeLimit: Long) {
     }
 
     if (payloadLen > frameSizeLimit) {
-      Oversized
+      OversizedDataFrame
     } else {
       if (isMasked) {
         ExpectMaskingKey

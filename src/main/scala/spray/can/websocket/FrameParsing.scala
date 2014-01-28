@@ -12,8 +12,9 @@ import spray.io.TickGenerator
 object FrameParsing {
 
   def apply(frameSizeLimit: Int) = new PipelineStage {
+    FrameParser.frameSizeLimit = frameSizeLimit
     def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
-      val parser = new FrameParser(frameSizeLimit)
+      val parser = new FrameParser()
 
       val commandPipeline: CPL = commandPL
 
@@ -24,13 +25,8 @@ object FrameParsing {
             case FrameParser.Success(frame) =>
               eventPL(FrameInEvent(frame))
 
-            case FrameParser.InvalidOp =>
-              closeWithReason(StatusCode.ProtocolError,
-                "Invalid opcode.")
-
-            case FrameParser.Oversized =>
-              closeWithReason(StatusCode.MessageTooBig,
-                "Received a message that is too big for it to process, message size should not exceed " + frameSizeLimit)
+            case FrameParser.Failure(code, reason) =>
+              closeWithReason(code, reason)
           }
 
         case ev @ TickGenerator.Tick => eventPL(ev) // TODO timeout here?

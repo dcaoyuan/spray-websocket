@@ -17,7 +17,7 @@ object AutoPong {
       val commandPipeline = commandPL
 
       val eventPipeline: EPL = {
-        case FrameInEvent(x @ PingFrame(true, _, _)) =>
+        case FrameInEvent(x @ PingFrame(_)) =>
           eventPL(FrameOutEvent(x.copy(opcode = Opcode.Pong)))
 
         case ev => eventPL(ev)

@@ -13,7 +13,9 @@ object StatusCode {
     MessageTooBig,
     MandatoryExt,
     InternalServerError,
-    TlsHandshake).map(_.code)
+    TlsHandshake).map(x => x.code -> x).toMap
+
+  def statusCodeFor(code: Short) = statusCodes.getOrElse(code, new StatusCode(code))
 
   /**
    * Reserved Status Code Ranges
@@ -147,4 +149,4 @@ object StatusCode {
 
 }
 
-abstract class StatusCode(val code: Short)
+class StatusCode(val code: Short)

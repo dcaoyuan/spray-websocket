@@ -6,7 +6,7 @@ package spray.can.websocket
  */
 import akka.util.ByteString
 
-object UTF8Validate {
+object UTF8Validator {
   private val types = Array[Byte](
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 00..0f
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 10..1f

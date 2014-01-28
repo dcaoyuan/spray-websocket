@@ -30,6 +30,27 @@ object WebSocketFrontend {
        * (instead of pipelines owner actor) which is telling handler:
        *
        *   pipelines' owner <-> receiverRef <-> handler
+       *
+       *
+       *   +-------------------+  Frame Out     +---------+
+       *   |                   | <-----------   |         |
+       *   | WebSocketFrontend |                | Handler |
+       *   |                   | ----------->   |         |
+       *   |-------------------|  Frame In      +---------+
+       *   |  v             ^  |
+       *   |  v             ^  |
+       *   |-------------------|
+       *   |                   |
+       *   |                   |
+       *   |                   |
+       *   +-------------------+
+       *            ^
+       *            |
+       *            v
+       *     +--------------+
+       *     | client       |
+       *     +--------------+
+       *
        */
       val receiverRef = context.actorContext.actorOf(Props(new HandlerResponseReceiver(context)))
 

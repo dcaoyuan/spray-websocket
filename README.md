@@ -27,9 +27,9 @@ import HttpMethods._
 object SimpleServer extends App with MySslConfiguration {
 
   class WebSocketServer extends Actor with ActorLogging {
-    def receive = upgrading orElse businessLogic
+    def receive = handshaking orElse businessLogic
 
-    def upgrading: Receive = {
+    def handshaking: Receive = {
       // when a new connection comes in we register ourselves as the connection handler
       case Http.Connected(remoteAddress, localAddress) =>
         sender ! Http.Register(self)
