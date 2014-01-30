@@ -1,7 +1,6 @@
 package spray.can.websocket.frame
 
 import akka.util.ByteString
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.Charset
 import java.io.{ Closeable, InputStream }
@@ -137,7 +136,7 @@ object BinaryFrameStream {
   def apply(payload: InputStream): BinaryFrameStream = BinaryFrameStream(payload)
 }
 
-case class BinaryFrameStream(chunkSize: Int, payload: InputStream) extends FrameStream {
+final case class BinaryFrameStream(chunkSize: Int, payload: InputStream) extends FrameStream {
   def opcode = Opcode.Binary
 }
 
@@ -160,7 +159,7 @@ object TextFrameStream {
   def apply(payload: InputStream): TextFrameStream = TextFrameStream(payload)
 }
 
-case class TextFrameStream(chunkSize: Int, payload: InputStream) extends FrameStream {
+final case class TextFrameStream(chunkSize: Int, payload: InputStream) extends FrameStream {
   def opcode = Opcode.Text
 }
 
@@ -169,7 +168,7 @@ case class TextFrameStream(chunkSize: Int, payload: InputStream) extends FrameSt
  */
 object CloseFrame {
   def apply(): CloseFrame = apply(StatusCode.NormalClosure)
-  def apply(statusCode: StatusCode, reason: String = ""): CloseFrame = apply(0.toByte, toCloseFrameData(statusCode, reason))
+  def apply(statusCode: StatusCode, reason: String = ""): CloseFrame = apply(0.toByte, toPayload(statusCode, reason))
   def apply(payload: ByteString): CloseFrame = apply(0.toByte, payload)
   def apply(rsv: Byte, payload: ByteString): CloseFrame = new CloseFrame(rsv, payload)
 
@@ -186,22 +185,14 @@ object CloseFrame {
           if (!UTF8Validator.isValidate(reasonx)) {
             Some(StatusCode.ProtocolError, "non-UTF-8 [RFC3629] data within a text message.")
           } else {
-            Some(StatusCode.statusCodeFor(code), reasonx.utf8String)
+            Some(StatusCode(code), reasonx.utf8String)
           }
         }
     }
   }
 
-  private def toCloseFrameData(statusCode: StatusCode, reason: String = ""): ByteString = {
-    import Frame._
-
-    val buf = ByteBuffer.allocate(2 + reason.length)
-    buf.putShort(statusCode.code)
-    if (reason.length > 0) {
-      buf.put(reason.getBytes(UTF8))
-    }
-    ByteString(buf.array)
-  }
+  private def toPayload(code: StatusCode, reason: String) =
+    ByteString(code.toBytes ++ reason.getBytes(Frame.UTF8))
 }
 
 final class CloseFrame(val rsv: Byte, val payload: ByteString) extends Frame {

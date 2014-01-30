@@ -21,15 +21,15 @@ package object websocket {
    * Wraps a frame in a Event going up through the event pipeline
    */
   sealed trait FrameEvent extends Tcp.Event { def frame: Frame }
-  case class FrameInEvent(frame: Frame) extends FrameEvent
-  case class FrameOutEvent(frame: Frame) extends FrameEvent
+  final case class FrameInEvent(frame: Frame) extends FrameEvent
+  final case class FrameOutEvent(frame: Frame) extends FrameEvent
 
   /**
    * Wraps a frame in a Command going down through the command pipeline
    */
-  case class FrameCommand(frame: Frame) extends Tcp.Command
+  final case class FrameCommand(frame: Frame) extends Tcp.Command
 
-  case class FrameStreamCommand(frame: FrameStream) extends Tcp.Command
+  final case class FrameStreamCommand(frame: FrameStream) extends Tcp.Command
 
   /**
    * pipeline stage of websocket
@@ -96,7 +96,8 @@ package object websocket {
       }
     }
   }
-  case class UpgradeHeaders(key: String, protocal: List[String], extensions: List[String]) {
+  
+  final case class UpgradeHeaders(key: String, protocal: List[String], extensions: List[String]) {
     def acceptHash = new sun.misc.BASE64Encoder().encode(MessageDigest.getInstance("SHA-1").digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes("UTF-8")))
   }
 

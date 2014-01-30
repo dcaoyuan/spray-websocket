@@ -87,7 +87,7 @@ object FrameComposing {
           closeWithReason(statusCode, reason)
           fragmentFrames = Nil
 
-        case ev @ FrameInEvent(PingFrame(_) | PongFrame(_)) =>
+        case ev @ FrameInEvent(_: PingFrame | _: PongFrame) =>
           eventPL(ev)
 
         case ev =>
