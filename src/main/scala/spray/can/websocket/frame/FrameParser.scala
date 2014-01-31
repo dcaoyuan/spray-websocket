@@ -150,18 +150,8 @@ final class FrameParser {
       isMasked = ((b1 >> 7) & 1) == 1
 
       (b1 & 127) match {
-        case 126 =>
-          if (opcode.isControl) {
-            OversizedControlFrame
-          } else {
-            ExpectShortPayloadLen
-          }
-        case 127 =>
-          if (opcode.isControl) {
-            OversizedControlFrame
-          } else {
-            ExpectLongPayloadLen
-          }
+        case 126 => ExpectShortPayloadLen
+        case 127 => ExpectLongPayloadLen
         case len => parsePayloadLen(input, 0, len)
       }
 
@@ -185,15 +175,17 @@ final class FrameParser {
     case x => x
   }
 
-  private def parsePayloadLen(input: ByteIterator, nBytes: Long, l: Int = -1): State = {
+  private def parsePayloadLen(input: ByteIterator, nBytes: Long, len: Int = -1): State = {
     payloadLen = nBytes match {
-      case 0 => l // length has been got
+      case 0 => len // length has been got
       case 2 => input.getShort & 0xffff // to unsigned int
       case 8 => input.getLong
     }
 
     if (payloadLen > frameSizeLimit) {
       OversizedDataFrame
+    } else if (opcode.isControl && payloadLen > 125) {
+      OversizedControlFrame
     } else {
       if (isMasked) {
         ExpectMaskingKey
