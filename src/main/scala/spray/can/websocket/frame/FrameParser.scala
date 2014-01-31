@@ -34,7 +34,7 @@ object FrameParser {
     def unapply(x: Failure): Option[(StatusCode, String)] = Some(x.statusCode, x.reason)
   }
   sealed abstract class Failure(val statusCode: StatusCode, val reason: String) extends State { def nBytes = 0 }
-  case object InvalidOpcode extends Failure(StatusCode.ProtocolError, "Invalid opcode.")
+  case object InvalidOpcode extends Failure(StatusCode.ProtocolError, "Invalid or reserved opcode.")
   case object FalseFinControlFrame extends Failure(StatusCode.ProtocolError, "Receive control frame with false fin.")
   case object OversizedControlFrame extends Failure(StatusCode.ProtocolError, "All control frames MUST have a payload length of 125 bytes or less and MUST NOT be fragmented.")
   case object OversizedDataFrame extends Failure(StatusCode.MessageTooBig, "Received a message that is too big for it to process, message size should not exceed " + frameSizeLimit)
@@ -136,8 +136,8 @@ final class FrameParser {
       fin = ((b0 >> 7) & 1) == 1
       rsv = ((b0 >> 4) & 7).toByte
 
-      opcode = Opcode.opcodeFor(b0 & 0xf)
-      if (opcode.isInvalid) {
+      opcode = Opcode((b0 & 0xf).toByte)
+      if (opcode.isInvalid || opcode.isReserved) {
         InvalidOpcode
       } else if (opcode.isControl && !fin) {
         FalseFinControlFrame
