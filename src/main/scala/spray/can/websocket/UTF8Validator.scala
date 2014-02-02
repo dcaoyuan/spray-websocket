@@ -39,8 +39,8 @@ object UTF8Validator {
   /**
    * TODO it seems that applying directly on ByteString(i) won't work, why?
    */
-  def isValidate(bytes: ByteString): Boolean = isValidate(bytes.toArray)
-  @inline def isValidate(bytes: Array[Byte]): Boolean = {
+  def isValid(bytes: ByteString): Boolean = isValid(bytes.toArray)
+  @inline def isValid(bytes: Array[Byte]): Boolean = {
     var state = ACCEPT
     var codep = 0
     var i = 0
@@ -59,4 +59,6 @@ object UTF8Validator {
     state == ACCEPT
   }
 
+  def isInvalid(bytes: ByteString): Boolean = !isValid(bytes)
+  def isInvalid(bytes: Array[Byte]): Boolean = !isValid(bytes)
 }

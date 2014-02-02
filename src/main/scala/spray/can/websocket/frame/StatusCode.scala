@@ -31,16 +31,17 @@ object StatusCode {
    *
    * code != 1004 && code != 1005 && code != 1006
    */
-  def isValidCloseCode(code: Short) = (
+  def isAllowed(code: Short) = (
     (code >= 1000 && code <= 1003) ||
     (code >= 1007 && code <= 1011) ||
     (code >= 3000 && code <= 4999))
+  def notAllowed(code: Short) = !isAllowed(code)
 
   /**
    * 1000 indicates a normal closure, meaning that the purpose for
    * which the connection was established has been fulfilled.
    */
-  val NormalClosure = StatusCode(1000)
+  val NormalClose = StatusCode(1000)
 
   /**
    * 1001 indicates that an endpoint is "going away", such as a server
@@ -60,7 +61,7 @@ object StatusCode {
    * endpoint that understands only text data MAY send this if it
    * receives a binary message).
    */
-  val UnacceptDataType = StatusCode(1003)
+  val UnsupportedData = StatusCode(1003)
 
   /**
    * Reserved.  The specific meaning might be defined in the future.
@@ -73,7 +74,7 @@ object StatusCode {
    * applications expecting a status code to indicate that no status
    * code was actually present.
    */
-  val NoStatusReceived = StatusCode(1005)
+  val Null = StatusCode(1005)
 
   /**
    * 1006 is a reserved value and MUST NOT be set as a status code in a
@@ -82,7 +83,7 @@ object StatusCode {
    * connection was closed abnormally, e.g., without sending or
    * receiving a Close control frame.
    */
-  val AbnormalClosure = StatusCode(1006)
+  val AbnormalClose = StatusCode(1006)
 
   /**
    * 1007 indicates that an endpoint is terminating the connection
@@ -90,7 +91,7 @@ object StatusCode {
    * consistent with the type of the message (e.g., non-UTF-8 [RFC3629]
    * data within a text message).
    */
-  val InvalidFramePayloadData = StatusCode(1007)
+  val InvalidPayload = StatusCode(1007)
 
   /**
    * 1008 indicates that an endpoint is terminating the connection
@@ -117,14 +118,14 @@ object StatusCode {
    * Note that this status code is not used by the server, because it
    * can fail the WebSocket handshake instead.
    */
-  val MandatoryExt = StatusCode(1010)
+  val MandatoryExtension = StatusCode(1010)
 
   /**
    * 1011 indicates that a server is terminating the connection because
    * it encountered an unexpected condition that prevented it from
    * fulfilling the request.
    */
-  val InternalServerError = StatusCode(1011)
+  val InternalError = StatusCode(1011)
 
   /**
    * 1015 is a reserved value and MUST NOT be set as a status code in a
@@ -133,7 +134,7 @@ object StatusCode {
    * connection was closed due to a failure to perform a TLS handshake
    * (e.g., the server certificate can't be verified).
    */
-  val TlsHandshake = StatusCode(1015)
+  val TlsHandshakeError = StatusCode(1015)
 
 }
 

@@ -167,22 +167,22 @@ final case class TextFrameStream(chunkSize: Int, payload: InputStream) extends F
  * Close frame
  */
 object CloseFrame {
-  def apply(): CloseFrame = apply(StatusCode.NormalClosure)
+  def apply(): CloseFrame = apply(StatusCode.NormalClose)
   def apply(statusCode: StatusCode, reason: String = ""): CloseFrame = apply(0.toByte, toPayload(statusCode, reason))
   def apply(payload: ByteString): CloseFrame = apply(0.toByte, payload)
   def apply(rsv: Byte, payload: ByteString): CloseFrame = new CloseFrame(rsv, payload)
 
   def unapply(x: CloseFrame): Option[(StatusCode, String)] = {
     x.payload.length match {
-      case 0 => Some(StatusCode.NormalClosure, "")
+      case 0 => Some(StatusCode.NormalClose, "Normal close of connection.")
       case 1 => Some(StatusCode.ProtocolError, "Received illegal close frame with payload length is 1, the length should be 0 or at least 2.")
       case _ =>
         val (codex, reasonx) = x.payload.splitAt(2)
         val code = codex.iterator.getShort(Frame.byteOrder)
-        if (!StatusCode.isValidCloseCode(code)) {
+        if (StatusCode.notAllowed(code)) {
           Some(StatusCode.ProtocolError, "Received illegal close code " + code)
         } else {
-          if (!UTF8Validator.isValidate(reasonx)) {
+          if (UTF8Validator.isInvalid(reasonx)) {
             Some(StatusCode.ProtocolError, "non-UTF-8 [RFC3629] data within a text message.")
           } else {
             Some(StatusCode(code), reasonx.utf8String)

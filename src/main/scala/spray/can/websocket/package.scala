@@ -89,8 +89,14 @@ package object websocket {
         val key = acceptanceHash(collector.key)
         val protocols = collector.protocal.split(',').toList.map(_.trim)
         val extentions = collector.extensions.split(',').toList.map(_.trim)
-        val deflateFrame = extentions.find(_ == "x-webkit-deflate-frame").isDefined // TODO
-        Some(UpgradeState(key, protocols, extentions, deflateFrame))
+        // permessage-deflate
+        // permessage-bzip2
+        // permessage-snappy
+        val permessageDeflate = extentions.find(_ == "permessage-deflate") match {
+          case Some(x) => Some(PermessageDeflate())
+          case None    => None
+        }
+        Some(UpgradeState(key, protocols, extentions, permessageDeflate))
       } else {
         None
       }
@@ -111,7 +117,18 @@ package object websocket {
     status = StatusCodes.SwitchingProtocols,
     headers = acceptanceHeaders(state.key))
 
-  final case class UpgradeState(key: String, protocal: List[String], extensions: List[String], deflateFrame: Boolean)
+  final case class UpgradeState(key: String, protocal: List[String], extensions: List[String],
+                                permessageDeflate: Option[PermessageDeflate])
+
+  final case class PermessageDeflate(
+    server_no_context_takeover: Boolean = true,
+
+    client_no_context_takeover: Boolean = true,
+
+    server_max_window_bits: Int = 10, // 8 - 15
+
+    client_max_window_bits: Int = 10 // 8 - 15
+    )
 
 }
 

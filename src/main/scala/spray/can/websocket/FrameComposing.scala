@@ -47,8 +47,8 @@ object FrameComposing {
                 } else {
                   val head :: tail = (x :: fragmentFrames).reverse
                   val finalFrame = tail.foldLeft(head) { (acc, cont) => acc.copy(payload = acc.payload ++ cont.payload) }
-                  if (finalFrame.opcode == Opcode.Text && !UTF8Validator.isValidate(finalFrame.payload)) {
-                    closeWithReason(StatusCode.InvalidFramePayloadData,
+                  if (finalFrame.opcode == Opcode.Text && UTF8Validator.isInvalid(finalFrame.payload)) {
+                    closeWithReason(StatusCode.InvalidPayload,
                       "non-UTF-8 [RFC3629] data within a text message.")
                   } else {
                     eventPL(FrameInEvent(finalFrame.copy(fin = true, payload = finalFrame.payload.compact)))
