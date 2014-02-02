@@ -4,7 +4,7 @@ import akka.actor.ActorRef
 import akka.io.Tcp
 import java.security.MessageDigest
 import spray.can.server.ServerSettings
-import spray.can.websocket.frame.{FrameStream, Frame}
+import spray.can.websocket.frame.{ FrameStream, Frame }
 import spray.can.websocket.server.WebSocketFrontend
 import spray.http.HttpHeader
 import spray.http.HttpHeaders
@@ -48,66 +48,70 @@ package object websocket {
   }
 
   object UpgradeRequest {
-    def unapply(req: HttpRequest): Option[UpgradeHeaders] = req match {
-      case HttpRequest(HttpMethods.GET, _, UpgradeHeaders(header), _, _) => Some(header)
+    def unapply(req: HttpRequest): Option[UpgradeState] = req match {
+      case HttpRequest(HttpMethods.GET, _, UpgradeHeaders(state), _, _) => Some(state)
       case _ => None
     }
   }
 
   private object UpgradeHeaders {
+    val acceptedVersions = Set("7", "8", "13")
+
     class Collector {
-      var hasConnetion = false
-      var hasUpgrade = false
-      var hasVersion = false
+      var connection: String = _
+      var upgrade: String = _
+      var version: String = _
 
       var key = ""
       var protocal = "" // optional
       var extensions = "" // optional
     }
 
-    def unapply(headers: List[HttpHeader]): Option[UpgradeHeaders] = {
-      val collector = headers.foldLeft(new Collector) {
-        case (acc, Connection(Seq("Upgrade"))) =>
-          acc.hasConnetion = true
-          acc
-        case (acc, RawHeader("Upgrade", value)) if value.toLowerCase == "websocket" =>
-          acc.hasUpgrade = true
-          acc
-        case (acc, RawHeader("Sec-WebSocket-Version", "13")) =>
-          acc.hasVersion = true
-          acc
-        case (acc, RawHeader("Sec-WebSocket-Key", key)) =>
-          acc.key = key
-          acc
-        case (acc, RawHeader("Sec-WebSocket-Protocol", protocal)) =>
-          acc.protocal = protocal
-          acc
-        case (acc, RawHeader("Sec-WebSocket-Extensions", extensions)) =>
-          acc.extensions = extensions
-          acc
-        case (acc, _) =>
-          acc
+    def unapply(headers: List[HttpHeader]): Option[UpgradeState] = {
+      val collector = headers.foldLeft(new Collector) { (acc, header) =>
+        header match {
+          case HttpHeaders.Connection(Seq(connection)) => acc.connection = connection
+          case HttpHeaders.RawHeader("Upgrade", upgrate) => acc.upgrade = upgrate.toLowerCase
+          case HttpHeaders.RawHeader("Sec-WebSocket-Version", version) => acc.version = version
+          case HttpHeaders.RawHeader("Sec-WebSocket-Key", key) => acc.key = key
+          case HttpHeaders.RawHeader("Sec-WebSocket-Protocol", protocal) => acc.protocal = protocal
+          case HttpHeaders.RawHeader("Sec-WebSocket-Extensions", extensions) => acc.extensions = extensions
+          case _ =>
+        }
+
+        acc
       }
 
-      if (collector.hasConnetion && collector.hasUpgrade && collector.hasVersion) {
-        Some(UpgradeHeaders(collector.key, collector.protocal.split(',').toList.map(_.trim), collector.extensions.split(',').toList.map(_.trim)))
+      if (collector.connection == "Upgrade"
+        && collector.upgrade == "websocket"
+        && acceptedVersions.contains(collector.version)) {
+
+        val key = acceptanceHash(collector.key)
+        val protocols = collector.protocal.split(',').toList.map(_.trim)
+        val extentions = collector.extensions.split(',').toList.map(_.trim)
+        val deflateFrame = extentions.find(_ == "x-webkit-deflate-frame").isDefined // TODO
+        Some(UpgradeState(key, protocols, extentions, deflateFrame))
       } else {
         None
       }
     }
   }
-  
-  final case class UpgradeHeaders(key: String, protocal: List[String], extensions: List[String]) {
-    def acceptHash = new sun.misc.BASE64Encoder().encode(MessageDigest.getInstance("SHA-1").digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes("UTF-8")))
+
+  def acceptanceHash(key: String) = {
+    new sun.misc.BASE64Encoder().encode(
+      MessageDigest.getInstance("SHA-1").digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes("UTF-8")))
   }
 
-  def acceptHeaders(acceptKey: String) = List(
+  def acceptanceHeaders(acceptKey: String) = List(
     HttpHeaders.RawHeader("Upgrade", "websocket"),
     HttpHeaders.Connection("Upgrade"),
     HttpHeaders.RawHeader("Sec-WebSocket-Accept", acceptKey))
 
-  def acceptResp(x: UpgradeHeaders) = HttpResponse(
+  def acceptanceResp(state: UpgradeState) = HttpResponse(
     status = StatusCodes.SwitchingProtocols,
-    headers = acceptHeaders(x.acceptHash))
+    headers = acceptanceHeaders(state.key))
+
+  final case class UpgradeState(key: String, protocal: List[String], extensions: List[String], deflateFrame: Boolean)
+
 }
 
