@@ -4,6 +4,8 @@ import akka.actor.ActorRef
 import akka.io.Tcp
 import java.security.MessageDigest
 import spray.can.server.ServerSettings
+import spray.can.websocket.compress.PMCE
+import spray.can.websocket.compress.PermessageDeflate
 import spray.can.websocket.frame.{ FrameStream, Frame }
 import spray.can.websocket.server.WebSocketFrontend
 import spray.http.HttpHeader
@@ -37,98 +39,163 @@ package object websocket {
    * TODO websocketFrameSizeLimit as setting option?
    * TODO isAutoPongEnabled as setting options?
    */
-  def pipelineStage(serverHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = None) = (settings: ServerSettings) => {
+  def pipelineStage(serverHandler: ActorRef, state: HandshakeSuccess,
+                    isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue,
+                    maskGen: Option[() => Array[Byte]] = None) = (settings: ServerSettings) => {
+
     import settings._
     import timeouts._
     WebSocketFrontend(settings, serverHandler) >>
-      FrameRendering(maskGen) >>
+      FrameRendering(maskGen, state) >>
       AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
-      FrameComposing(websocketFrameSizeLimit) >>
+      FrameComposing(websocketFrameSizeLimit, state) >>
       FrameParsing(websocketFrameSizeLimit)
   }
 
-  object UpgradeRequest {
-    def unapply(req: HttpRequest): Option[UpgradeState] = req match {
-      case HttpRequest(HttpMethods.GET, _, UpgradeHeaders(state), _, _) => Some(state)
+  object HandshakeRequest {
+    def unapply(req: HttpRequest): Option[HandshakeState] = req match {
+      case HttpRequest(HttpMethods.GET, _, HandshakeHeaders(state), _, _) => Some(state)
       case _ => None
     }
   }
 
-  private object UpgradeHeaders {
-    val acceptedVersions = Set("7", "8", "13")
+  private object HandshakeHeaders {
+    val acceptedVersions = Set("13")
 
     class Collector {
-      var connection: String = _
-      var upgrade: String = _
+      var connection: List[String] = Nil
+      var upgrade: List[String] = Nil
       var version: String = _
 
       var key = ""
-      var protocal = "" // optional
-      var extensions = "" // optional
+      var protocal: List[String] = Nil
+      var extensions = Map[String, Map[String, String]]()
     }
 
-    def unapply(headers: List[HttpHeader]): Option[UpgradeState] = {
+    def unapply(headers: List[HttpHeader]): Option[HandshakeState] = {
       val collector = headers.foldLeft(new Collector) { (acc, header) =>
         header match {
-          case HttpHeaders.Connection(Seq(connection)) => acc.connection = connection
-          case HttpHeaders.RawHeader("Upgrade", upgrate) => acc.upgrade = upgrate.toLowerCase
-          case HttpHeaders.RawHeader("Sec-WebSocket-Version", version) => acc.version = version
-          case HttpHeaders.RawHeader("Sec-WebSocket-Key", key) => acc.key = key
-          case HttpHeaders.RawHeader("Sec-WebSocket-Protocol", protocal) => acc.protocal = protocal
-          case HttpHeaders.RawHeader("Sec-WebSocket-Extensions", extensions) => acc.extensions = extensions
+          case Connection(connection) =>
+            acc.connection :::= connection.toList.map(_.trim).map(_.toLowerCase)
+            if (!acc.connection.contains("upgrade")) {
+              return None
+            }
+          case RawHeader("Upgrade", upgrate) =>
+            acc.upgrade :::= upgrate.split(',').toList.map(_.trim).map(_.toLowerCase)
+            if (!acc.upgrade.contains("websocket")) {
+              return None
+            }
+          case RawHeader("Sec-WebSocket-Version", version) => acc.version = version // TODO negotiation
+          case RawHeader("Sec-WebSocket-Key", key) => acc.key = key
+          case RawHeader("Sec-WebSocket-Protocol", protocal) => acc.protocal :::= protocal.split(',').toList.map(_.trim)
+          case RawHeader("Sec-WebSocket-Extensions", extensions) => acc.extensions ++= parseExtensions(extensions)
           case _ =>
         }
 
         acc
       }
 
-      if (collector.connection == "Upgrade"
-        && collector.upgrade == "websocket"
-        && acceptedVersions.contains(collector.version)) {
-
+      if (acceptedVersions.contains(collector.version)) {
+        import PermessageDeflate._
         val key = acceptanceHash(collector.key)
-        val protocols = collector.protocal.split(',').toList.map(_.trim)
-        val extentions = collector.extensions.split(',').toList.map(_.trim)
-        // permessage-deflate
-        // permessage-bzip2
-        // permessage-snappy
-        val permessageDeflate = extentions.find(_ == "permessage-deflate") match {
-          case Some(x) => Some(PermessageDeflate())
-          case None    => None
+        val protocols = collector.protocal
+        val extentions = collector.extensions
+
+        val pcme = extentions.get("permessage-deflate") map (PermessageDeflate(_))
+
+        pcme match {
+          case Some(x) =>
+            //if (x.client_max_window_bits == WBITS_NOT_SET) {
+            Some(HandshakeSuccess(key, protocols, extentions, pcme))
+          //} else { // does not support server_max_window_bits yet
+          //  Some(HandshakeFailure(protocols, extentions))
+          //}
+          case None => Some(HandshakeSuccess(key, protocols, extentions, pcme))
         }
-        Some(UpgradeState(key, protocols, extentions, permessageDeflate))
+
       } else {
         None
       }
     }
+
+    def parseExtensions(extensions: String, removeQuotes: Boolean = true) = {
+      extensions.split(',').map(_.trim).filter(_.length > 0).foldLeft(Map[String, Map[String, String]]()) { (acc, ext) =>
+        ext.split(';') match {
+          case Array(extension, ps @ _*) =>
+            val params = ps.filter(_.length > 0).foldLeft(Map[String, String]()) { (xs, x) =>
+              x.split("=").map(_.trim) match {
+                case Array(key, value) => xs + (key.toLowerCase -> stripQuotes_?(value, removeQuotes))
+                case Array(key)        => xs + (key.toLowerCase -> "true")
+                case _                 => xs
+              }
+            }
+            acc + (extension -> params)
+          case _ =>
+            acc
+        }
+      }
+    }
+
+    // none strict
+    def stripQuotes_?(s: String, removeQuotes: Boolean) = {
+      if (removeQuotes) {
+        val len = s.length
+        if (len >= 1 && s.charAt(0) == '"') {
+          if (len >= 2 && s.charAt(len - 1) == '"') {
+            s.substring(1, len - 1)
+          } else {
+            s.substring(1, len)
+          }
+        } else {
+          s
+        }
+      } else {
+        s
+      }
+    }
   }
 
-  def acceptanceHash(key: String) = {
-    new sun.misc.BASE64Encoder().encode(
-      MessageDigest.getInstance("SHA-1").digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes("UTF-8")))
+  private def acceptanceHash(key: String) = new sun.misc.BASE64Encoder().encode(
+    MessageDigest.getInstance("SHA-1").digest(
+      key.getBytes("UTF-8") ++ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11".getBytes("UTF-8")))
+
+  sealed trait HandshakeState {
+    def response: HttpResponse
   }
 
-  def acceptanceHeaders(acceptKey: String) = List(
-    HttpHeaders.RawHeader("Upgrade", "websocket"),
-    HttpHeaders.Connection("Upgrade"),
-    HttpHeaders.RawHeader("Sec-WebSocket-Accept", acceptKey))
+  final case class HandshakeFailure(
+    protocal: List[String],
+    extensions: Map[String, Map[String, String]]) extends HandshakeState {
 
-  def acceptanceResp(state: UpgradeState) = HttpResponse(
-    status = StatusCodes.SwitchingProtocols,
-    headers = acceptanceHeaders(state.key))
+    private def responseHeaders: List[HttpHeader] = List(
+      HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate"))
 
-  final case class UpgradeState(key: String, protocal: List[String], extensions: List[String],
-                                permessageDeflate: Option[PermessageDeflate])
+    def response = HttpResponse(
+      status = StatusCodes.BadRequest,
+      headers = responseHeaders)
 
-  final case class PermessageDeflate(
-    server_no_context_takeover: Boolean = true,
+  }
 
-    client_no_context_takeover: Boolean = true,
+  final case class HandshakeSuccess(
+    acceptanceKey: String,
+    protocal: List[String],
+    extensions: Map[String, Map[String, String]],
+    pmce: Option[PMCE]) extends HandshakeState {
 
-    server_max_window_bits: Int = 10, // 8 - 15
+    def isCompressionNegotiated = pmce.isDefined
 
-    client_max_window_bits: Int = 10 // 8 - 15
-    )
+    private def responseHeaders: List[HttpHeader] = List(
+      HttpHeaders.RawHeader("Upgrade", "websocket"),
+      HttpHeaders.Connection("Upgrade"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Accept", acceptanceKey)) ::: {
+        pmce map { _.extensionHeader } toList
+      }
+
+    def response = HttpResponse(
+      status = StatusCodes.SwitchingProtocols,
+      headers = responseHeaders)
+
+  }
 
 }
 

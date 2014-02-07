@@ -41,35 +41,61 @@ object Frame {
     ByteString(masked)
   }
 
+  def toFinRsvOp(fin: Boolean, opcode: Opcode, rsv1: Boolean = false, rsv2: Boolean = false, rsv3: Boolean = false): Byte = (
+    (if (fin) 0x80 else 0x00)
+    | (if (rsv1) 0x40 else 0x00)
+    | (if (rsv2) 0x20 else 0x00)
+    | (if (rsv3) 0x10 else 0x00)
+    | (opcode.code & 0x0F)).toByte
+
+  def finOf(finRsvOp: Byte): Boolean = ((finRsvOp >> 7) & 1) == 1
+  def rsvOf(finRsvOp: Byte): Byte = ((finRsvOp >> 4) & 7).toByte
+  def opcodeOf(finRsvOp: Byte): Opcode = Opcode((finRsvOp & 0xf).toByte)
+
+  def rsv1Of(finRsvOp: Byte): Boolean = (finRsvOp & 0x40) != 0
+  def rsv2Of(finRsvOp: Byte): Boolean = (finRsvOp & 0x20) != 0
+  def rsv3Of(finRsvOp: Byte): Boolean = (finRsvOp & 0x10) != 0
+
   /**
    * Note fin should be true for control frames.
    */
-  private[frame] def apply(fin: Boolean, rsv: Byte, opcode: Opcode, payload: ByteString) = opcode match {
-    case Opcode.Continuation => ContinuationFrame(fin, rsv, payload)
-    case Opcode.Binary       => BinaryFrame(fin, rsv, payload)
-    case Opcode.Text         => TextFrame(fin, rsv, payload)
-    case Opcode.Close        => CloseFrame(rsv, payload)
-    case Opcode.Ping         => PingFrame(rsv, payload)
-    case Opcode.Pong         => PongFrame(rsv, payload)
+  private[frame] def apply(finRsvOp: Byte, payload: ByteString) = opcodeOf(finRsvOp) match {
+    case Opcode.Continuation => ContinuationFrame(finRsvOp, payload)
+    case Opcode.Binary       => BinaryFrame(finRsvOp, payload)
+    case Opcode.Text         => TextFrame(finRsvOp, payload)
+    case Opcode.Close        => CloseFrame(finRsvOp, payload)
+    case Opcode.Ping         => PingFrame(finRsvOp, payload)
+    case Opcode.Pong         => PongFrame(finRsvOp, payload)
   }
 
   def unapply(x: Frame): Option[(Boolean, Byte, Opcode, ByteString)] =
     Some(x.fin, x.rsv, x.opcode, x.payload)
 }
 
-sealed trait Frame {
-  def fin: Boolean
-  def rsv: Byte
-  def opcode: Opcode
-  def payload: ByteString
+abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
+  import Frame._
 
-  def copy(fin: Boolean = this.fin,
-           rsv: Byte = this.rsv,
-           opcode: Opcode = this.opcode,
-           payload: ByteString = this.payload) =
-    Frame(fin, rsv, opcode, payload)
+  def finRsvOp: Byte = _finRsvOp
+  def payload: ByteString = _payload
+
+  def fin: Boolean = finOf(finRsvOp)
+  def rsv: Byte = rsvOf(finRsvOp)
+  def opcode: Opcode = opcodeOf(finRsvOp)
+
+  def rsv1: Boolean = rsv1Of(finRsvOp)
+  def rsv2: Boolean = rsv2Of(finRsvOp)
+  def rsv3: Boolean = rsv3Of(finRsvOp)
 
   def isControl = opcode.isControl
+  def isData = !isControl
+
+  def copy(fin: Boolean = this.fin,
+           rsv1: Boolean = this.rsv1,
+           rsv2: Boolean = this.rsv2,
+           rsv3: Boolean = this.rsv3,
+           opcode: Opcode = this.opcode,
+           payload: ByteString = this.payload) =
+    Frame(toFinRsvOp(fin, opcode, rsv1, rsv2, rsv3), payload)
 }
 
 sealed trait FrameStream extends Closeable {
@@ -106,31 +132,27 @@ object DataFrame {
  * Binary frame
  */
 object ContinuationFrame {
-  def apply(payload: ByteString): ContinuationFrame = apply(false, 0, payload)
-  def apply(fin: Boolean, payload: ByteString): ContinuationFrame = apply(fin, 0, payload)
-  def apply(fin: Boolean, rsv: Byte, payload: ByteString): ContinuationFrame = new ContinuationFrame(fin, rsv, payload)
+  def apply(payload: ByteString): ContinuationFrame = apply(false, payload)
+  def apply(fin: Boolean, payload: ByteString): ContinuationFrame = apply(Frame.toFinRsvOp(fin, Opcode.Continuation), payload)
+  def apply(finRsvOp: Byte, payload: ByteString): ContinuationFrame = new ContinuationFrame(finRsvOp, payload)
 
   def unapply(x: ContinuationFrame): Option[ByteString] = Some(x.payload)
 }
 
-final class ContinuationFrame(val fin: Boolean, val rsv: Byte, val payload: ByteString) extends Frame {
-  def opcode = Opcode.Continuation
-}
+final class ContinuationFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
 
 /**
  * Binary frame
  */
 object BinaryFrame {
-  def apply(payload: ByteString): BinaryFrame = apply(true, 0, payload)
-  def apply(fin: Boolean, payload: ByteString): BinaryFrame = apply(fin, 0, payload)
-  def apply(fin: Boolean, rsv: Byte, payload: ByteString): BinaryFrame = new BinaryFrame(fin, rsv, payload)
+  def apply(payload: ByteString): BinaryFrame = apply(true, payload)
+  def apply(fin: Boolean, payload: ByteString): BinaryFrame = apply(Frame.toFinRsvOp(fin, Opcode.Binary), payload)
+  def apply(finRsvOp: Byte, payload: ByteString): BinaryFrame = new BinaryFrame(finRsvOp, payload)
 
   def unapply(x: BinaryFrame): Option[ByteString] = Some(x.payload)
 }
 
-final class BinaryFrame(val fin: Boolean, val rsv: Byte, val payload: ByteString) extends Frame {
-  def opcode = Opcode.Binary
-}
+final class BinaryFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
 
 object BinaryFrameStream {
   def apply(payload: InputStream): BinaryFrameStream = BinaryFrameStream(payload)
@@ -144,16 +166,14 @@ final case class BinaryFrameStream(chunkSize: Int, payload: InputStream) extends
  * Text frame
  */
 object TextFrame {
-  def apply(payload: ByteString): TextFrame = apply(true, 0, payload)
-  def apply(fin: Boolean, payload: ByteString): TextFrame = apply(fin, 0, payload)
-  def apply(fin: Boolean, rsv: Byte, payload: ByteString): TextFrame = new TextFrame(fin, rsv, payload)
+  def apply(payload: ByteString): TextFrame = apply(true, payload)
+  def apply(fin: Boolean, payload: ByteString): TextFrame = apply(Frame.toFinRsvOp(fin, Opcode.Text), payload)
+  def apply(finRsvOp: Byte, payload: ByteString): TextFrame = new TextFrame(finRsvOp, payload)
 
   def unapply(x: TextFrame): Option[ByteString] = Some(x.payload)
 }
 
-final class TextFrame(val fin: Boolean, val rsv: Byte, val payload: ByteString) extends Frame {
-  def opcode = Opcode.Text
-}
+final class TextFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
 
 object TextFrameStream {
   def apply(payload: InputStream): TextFrameStream = TextFrameStream(payload)
@@ -168,9 +188,9 @@ final case class TextFrameStream(chunkSize: Int, payload: InputStream) extends F
  */
 object CloseFrame {
   def apply(): CloseFrame = apply(StatusCode.NormalClose)
-  def apply(statusCode: StatusCode, reason: String = ""): CloseFrame = apply(0.toByte, toPayload(statusCode, reason))
-  def apply(payload: ByteString): CloseFrame = apply(0.toByte, payload)
-  def apply(rsv: Byte, payload: ByteString): CloseFrame = new CloseFrame(rsv, payload)
+  def apply(statusCode: StatusCode, reason: String = ""): CloseFrame = apply(toPayload(statusCode, reason))
+  def apply(payload: ByteString): CloseFrame = apply(Frame.toFinRsvOp(true, Opcode.Close), payload)
+  def apply(finRsvOp: Byte, payload: ByteString): CloseFrame = new CloseFrame(finRsvOp, payload)
 
   def unapply(x: CloseFrame): Option[(StatusCode, String)] = {
     x.payload.length match {
@@ -195,39 +215,29 @@ object CloseFrame {
     ByteString(code.toBytes ++ reason.getBytes(Frame.UTF8))
 }
 
-final class CloseFrame(val rsv: Byte, val payload: ByteString) extends Frame {
-  def fin = true
-  def opcode = Opcode.Close
-}
-
+final class CloseFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
 /**
  * Ping frame
  */
 object PingFrame {
-  def apply(): PingFrame = apply(0, ByteString.empty)
-  def apply(payload: ByteString): PingFrame = apply(0, payload)
-  def apply(rsv: Byte, payload: ByteString): PingFrame = new PingFrame(rsv, payload)
+  def apply(): PingFrame = apply(ByteString.empty)
+  def apply(payload: ByteString): PingFrame = apply(Frame.toFinRsvOp(true, Opcode.Ping), payload)
+  def apply(finRsvOp: Byte, payload: ByteString): PingFrame = new PingFrame(finRsvOp, payload)
 
   def unapply(x: PingFrame): Option[ByteString] = Some(x.payload)
 }
 
-final class PingFrame(val rsv: Byte, val payload: ByteString) extends Frame {
-  def fin = true
-  def opcode = Opcode.Ping
-}
+final class PingFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
 
 /**
  * Pong frame
  */
 object PongFrame {
-  def apply(): PongFrame = apply(0, ByteString.empty)
-  def apply(payload: ByteString): PongFrame = apply(0, payload)
-  def apply(rsv: Byte, payload: ByteString): PongFrame = new PongFrame(rsv, payload)
+  def apply(): PongFrame = apply(ByteString.empty)
+  def apply(payload: ByteString): PongFrame = apply(Frame.toFinRsvOp(true, Opcode.Pong), payload)
+  def apply(finRsvOp: Byte, payload: ByteString): PongFrame = new PongFrame(finRsvOp, payload)
 
   def unapply(x: PongFrame): Option[ByteString] = Some(x.payload)
 }
 
-final class PongFrame(val rsv: Byte, val payload: ByteString) extends Frame {
-  def fin = true
-  def opcode = Opcode.Pong
-}
+final class PongFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)

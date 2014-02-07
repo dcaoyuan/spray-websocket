@@ -10,9 +10,8 @@ object FrameRender {
 
     val builder = ByteString.newBuilder
 
-    val finBit = if (fin) 1 else 0
-    val b0 = (finBit << 7) | (rsv << 4) | opcode.code
-    builder.putByte(b0.toByte)
+    val b0 = finRsvOp
+    builder.putByte(b0)
 
     val masked = if (maskingKey.length > 0) 1 else 0
     val payloadLen = payload.length

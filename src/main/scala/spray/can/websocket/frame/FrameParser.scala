@@ -64,8 +64,8 @@ final class FrameParser {
   import Frame._
   import FrameParser._
 
+  private var finRsvOp: Byte = _
   private var fin: Boolean = _
-  private var rsv: Byte = _
   private var opcode: Opcode = _
   private var isMasked: Boolean = _
   private var maskingKey: Array[Byte] = Array.empty
@@ -118,7 +118,7 @@ final class FrameParser {
         ExpectFin
 
       case ExpectData(0) => // should finish a frame right now too.
-        stateListener(Success(Frame(fin, rsv, opcode, ByteString.empty)))
+        stateListener(Success(Frame(finRsvOp, ByteString.empty)))
         ExpectFin
 
       case x => x
@@ -132,11 +132,10 @@ final class FrameParser {
 
   private def parse(input: ByteIterator, state: State): State = state match {
     case ExpectFin =>
-      val b0 = input.next()
-      fin = ((b0 >> 7) & 1) == 1
-      rsv = ((b0 >> 4) & 7).toByte
+      finRsvOp = input.next()
+      fin = finOf(finRsvOp)
 
-      opcode = Opcode((b0 & 0xf).toByte)
+      opcode = opcodeOf(finRsvOp)
       if (opcode.isInvalid || opcode.isReserved) {
         InvalidOpcode
       } else if (opcode.isControl && !fin) {
@@ -170,7 +169,7 @@ final class FrameParser {
         maskData(payload, maskingKey)
       }
 
-      Success(Frame(fin, rsv, opcode, ByteString(payload)))
+      Success(Frame(finRsvOp, ByteString(payload)))
 
     case x => x
   }

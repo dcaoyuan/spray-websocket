@@ -13,7 +13,7 @@ import spray.io.Pipelines
 
 object FrameComposing {
 
-  def apply(messageSizeLimit: Long) = new PipelineStage {
+  def apply(messageSizeLimit: Long, state: HandshakeSuccess) = new PipelineStage {
     def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
 
       var fragmentFrames: List[Frame] = Nil // TODO as an interface that can be adapted to outside cache
@@ -22,7 +22,7 @@ object FrameComposing {
 
       val eventPipeline: EPL = {
 
-        case FrameInEvent(x) if x.rsv != 0 =>
+        case FrameInEvent(x) if (x.rsv1 && !state.isCompressionNegotiated) || x.rsv2 || x.rsv3 =>
           closeWithReason(StatusCode.ProtocolError,
             "RSV MUST be 0 unless an extension is negotiated that defines meanings for non-zero values.")
           fragmentFrames = Nil
@@ -47,18 +47,23 @@ object FrameComposing {
                 } else {
                   val head :: tail = (x :: fragmentFrames).reverse
                   val finalFrame = tail.foldLeft(head) { (acc, cont) => acc.copy(payload = acc.payload ++ cont.payload) }
-                  if (finalFrame.opcode == Opcode.Text && UTF8Validator.isInvalid(finalFrame.payload)) {
-                    closeWithReason(StatusCode.InvalidPayload,
-                      "non-UTF-8 [RFC3629] data within a text message.")
+
+                  val payload1 = state.pmce match {
+                    case Some(pcme) if finalFrame.rsv1 => pcme.decode(finalFrame.payload, true)
+                    case _                             => finalFrame.payload.compact
+                  }
+
+                  if (finalFrame.opcode == Opcode.Text && UTF8Validator.isInvalid(payload1)) {
+                    closeWithReason(StatusCode.InvalidPayload, "non-UTF-8 [RFC3629] data within a text message.")
                   } else {
-                    eventPL(FrameInEvent(finalFrame.copy(fin = true, payload = finalFrame.payload.compact)))
+                    eventPL(FrameInEvent(finalFrame.copy(fin = true, rsv1 = false, payload = payload1)))
                   }
                 }
 
             }
             fragmentFrames = Nil
 
-          } else { // data frame to be continued
+          } else { // no-final data fragment
 
             (fragmentFrames, x.opcode) match {
 
@@ -81,8 +86,6 @@ object FrameComposing {
             }
           }
 
-        // --- final control frames
-
         case FrameInEvent(CloseFrame(statusCode, reason)) =>
           closeWithReason(statusCode, reason)
           fragmentFrames = Nil
@@ -94,12 +97,9 @@ object FrameComposing {
           eventPL(ev)
       }
 
-      def closeWithReason(statusCode: StatusCode, reason: String = "") {
-        closeWithReason(CloseFrame(statusCode, reason))
-      }
-
-      def closeWithReason(closeFrame: CloseFrame) {
-        eventPL(FrameOutEvent(closeFrame))
+      def closeWithReason(statusCode: StatusCode, reason: String = "") = {
+        context.log.debug("To close with statusCode: {}, reason: {}", statusCode, reason)
+        eventPL(FrameOutEvent(CloseFrame(statusCode, reason)))
       }
     }
   }

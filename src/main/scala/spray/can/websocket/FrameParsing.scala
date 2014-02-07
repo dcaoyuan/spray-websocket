@@ -7,7 +7,6 @@ import spray.can.websocket.frame.FrameParser
 import spray.io.PipelineContext
 import spray.io.PipelineStage
 import spray.io.Pipelines
-import spray.io.TickGenerator
 
 object FrameParsing {
 
@@ -20,21 +19,15 @@ object FrameParsing {
 
       val eventPipeline: EPL = {
         case Tcp.Received(data) =>
-
           parser.onReceive(data.iterator) {
-            case FrameParser.Success(frame) =>
-              eventPL(FrameInEvent(frame))
-
-            case FrameParser.Failure(code, reason) =>
-              closeWithReason(code, reason)
+            case FrameParser.Success(frame)        => eventPL(FrameInEvent(frame))
+            case FrameParser.Failure(code, reason) => closeWithReason(code, reason)
           }
-
-        case ev @ TickGenerator.Tick => eventPL(ev) // TODO timeout here?
-
-        case ev                      => eventPL(ev)
+        case ev => eventPL(ev)
       }
 
       def closeWithReason(statusCode: StatusCode, reason: String = "") = {
+        context.log.debug("To close with statusCode: {}, reason: {}", statusCode, reason)
         eventPL(FrameOutEvent(CloseFrame(statusCode, reason)))
       }
 
