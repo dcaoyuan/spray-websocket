@@ -30,16 +30,16 @@ class UpgradableHttpListener(bindCommander: ActorRef,
 
   override def connected(tcpListener: ActorRef): Receive = {
     case Tcp.Connected(remoteAddress, localAddress) ⇒
-      val conn = sender
+      val conn = sender()
       context.actorOf(
         props = Props(new HttpServerConnection(conn, listener, pipelineStage, remoteAddress, localAddress, settings))
           .withDispatcher(httpSettings.ConnectionDispatcher),
         name = connectionCounter.next().toString)
 
-    case Http.GetStats            ⇒ statsHolder foreach { holder ⇒ sender ! holder.toStats }
+    case Http.GetStats            ⇒ statsHolder foreach { holder ⇒ sender() ! holder.toStats }
     case Http.ClearStats          ⇒ statsHolder foreach { _.clear() }
 
-    case Http.Unbind(timeout)     ⇒ unbind(tcpListener, Set(sender), timeout)
+    case Http.Unbind(timeout)     ⇒ unbind(tcpListener, Set(sender()), timeout)
 
     case _: Http.ConnectionClosed ⇒
     // ignore, we receive this event when the user didn't register the handler within the registration timeout period

@@ -30,14 +30,14 @@ object SimpleServer extends App with MySslConfiguration {
     def handshaking: Receive = {
       // when a new connection comes in we register ourselves as the connection handler
       case Http.Connected(remoteAddress, localAddress) =>
-        sender ! Http.Register(self)
+        sender() ! Http.Register(self)
 
       // when a client request for upgrading to websocket comes in, we send
       // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
       case websocket.HandshakeRequest(state) =>
         state match {
-          case x: websocket.HandshakeFailure => sender ! x.response
-          case x: websocket.HandshakeSuccess => sender ! UHttp.Upgrade(websocket.pipelineStage(self, x), Some(x.response))
+          case x: websocket.HandshakeFailure => sender() ! x.response
+          case x: websocket.HandshakeSuccess => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, x), Some(x.response))
         }
 
       // upgraded successfully
@@ -48,7 +48,7 @@ object SimpleServer extends App with MySslConfiguration {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
-        sender ! x
+        sender() ! x
 
       case x: HttpRequest => // do something
 
