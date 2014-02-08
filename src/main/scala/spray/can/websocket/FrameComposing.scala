@@ -49,17 +49,23 @@ object FrameComposing {
                   val finalFrame = tail.foldLeft(head) { (acc, cont) => acc.copy(payload = acc.payload ++ cont.payload) }
 
                   val payload1 = state.pmce match {
-                    case Some(pcme) if finalFrame.rsv1 => pcme.decode(finalFrame.payload, true)
-                    case _                             => finalFrame.payload.compact
+                    case Some(pcme) if finalFrame.rsv1 =>
+                      try {
+                        Some(pcme.decode(finalFrame.payload, true))
+                      } catch {
+                        case ex: Throwable => closeWithReason(StatusCode.InvalidPayload, ex.getMessage); None
+                      }
+                    case _ => Some(finalFrame.payload.compact)
                   }
 
-                  if (finalFrame.opcode == Opcode.Text && UTF8Validator.isInvalid(payload1)) {
-                    closeWithReason(StatusCode.InvalidPayload, "non-UTF-8 [RFC3629] data within a text message.")
-                  } else {
-                    eventPL(FrameInEvent(finalFrame.copy(fin = true, rsv1 = false, payload = payload1)))
+                  payload1 foreach { payload =>
+                    if (finalFrame.opcode == Opcode.Text && UTF8Validator.isInvalid(payload)) {
+                      closeWithReason(StatusCode.InvalidPayload, "non-UTF-8 [RFC3629] data within a text message.")
+                    } else {
+                      eventPL(FrameInEvent(finalFrame.copy(fin = true, rsv1 = false, payload = payload)))
+                    }
                   }
                 }
-
             }
             fragmentFrames = Nil
 

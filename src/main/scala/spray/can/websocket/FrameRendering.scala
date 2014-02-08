@@ -18,19 +18,25 @@ object FrameRendering {
         case FrameCommand(frame) =>
           val frame1 = frame match {
             case DataFrame(fin, opcode, payload) =>
-              state.pmce map (_.encode(payload)) match {
-                case Some(x) => frame.copy(rsv1 = true, payload = x)
-                case None    => frame
-              }
+              state.pmce map { pmce =>
+                try {
+                  val payload1 = pmce.encode(payload)
+                  frame.copy(rsv1 = true, payload = payload1)
+                } catch {
+                  case ex: Throwable => frame // fallback to uncompressed frame
+                }
+              } getOrElse (frame)
             case _ => frame
           }
           commandPL(Tcp.Write(FrameRender.render(frame1, maskingKey)))
           if (frame1.opcode == Opcode.Close) {
             commandPL(Tcp.Close)
           }
+
         case FrameStreamCommand(frameStream) =>
           FrameRender.streamingRender(frameStream).foreach(f => commandPL(Tcp.Write(FrameRender.render(f, maskingKey))))
           frameStream.close
+
         case cmd => commandPL(cmd)
       }
 
