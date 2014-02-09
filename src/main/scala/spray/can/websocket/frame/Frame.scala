@@ -48,18 +48,18 @@ object Frame {
     | (if (rsv3) 0x10 else 0x00)
     | (opcode.code & 0x0F)).toByte
 
-  def finOf(finRsvOp: Byte): Boolean = ((finRsvOp >> 7) & 1) == 1
-  def rsvOf(finRsvOp: Byte): Byte = ((finRsvOp >> 4) & 7).toByte
-  def opcodeOf(finRsvOp: Byte): Opcode = Opcode((finRsvOp & 0xf).toByte)
+  def finFrom(finRsvOp: Byte): Boolean = ((finRsvOp >> 7) & 1) == 1
+  def rsvFrom(finRsvOp: Byte): Byte = ((finRsvOp >> 4) & 7).toByte
+  def opcodeFrom(finRsvOp: Byte): Opcode = Opcode((finRsvOp & 0xf).toByte)
 
-  def rsv1Of(finRsvOp: Byte): Boolean = (finRsvOp & 0x40) != 0
-  def rsv2Of(finRsvOp: Byte): Boolean = (finRsvOp & 0x20) != 0
-  def rsv3Of(finRsvOp: Byte): Boolean = (finRsvOp & 0x10) != 0
+  def rsv1From(finRsvOp: Byte): Boolean = (finRsvOp & 0x40) != 0
+  def rsv2From(finRsvOp: Byte): Boolean = (finRsvOp & 0x20) != 0
+  def rsv3From(finRsvOp: Byte): Boolean = (finRsvOp & 0x10) != 0
 
   /**
    * Note fin should be true for control frames.
    */
-  private[frame] def apply(finRsvOp: Byte, payload: ByteString) = opcodeOf(finRsvOp) match {
+  private[frame] def apply(finRsvOp: Byte, payload: ByteString) = opcodeFrom(finRsvOp) match {
     case Opcode.Continuation => ContinuationFrame(finRsvOp, payload)
     case Opcode.Binary       => BinaryFrame(finRsvOp, payload)
     case Opcode.Text         => TextFrame(finRsvOp, payload)
@@ -68,8 +68,8 @@ object Frame {
     case Opcode.Pong         => PongFrame(finRsvOp, payload)
   }
 
-  def unapply(x: Frame): Option[(Boolean, Byte, Opcode, ByteString)] =
-    Some(x.fin, x.rsv, x.opcode, x.payload)
+  def unapply(x: Frame): Option[(Boolean, Opcode, ByteString)] =
+    Some(x.fin, x.opcode, x.payload)
 }
 
 abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
@@ -78,13 +78,13 @@ abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
   def finRsvOp: Byte = _finRsvOp
   def payload: ByteString = _payload
 
-  def fin: Boolean = finOf(finRsvOp)
-  def rsv: Byte = rsvOf(finRsvOp)
-  def opcode: Opcode = opcodeOf(finRsvOp)
+  def fin: Boolean = finFrom(finRsvOp)
+  def rsv: Byte = rsvFrom(finRsvOp)
+  def opcode: Opcode = opcodeFrom(finRsvOp)
 
-  def rsv1: Boolean = rsv1Of(finRsvOp)
-  def rsv2: Boolean = rsv2Of(finRsvOp)
-  def rsv3: Boolean = rsv3Of(finRsvOp)
+  def rsv1: Boolean = rsv1From(finRsvOp)
+  def rsv2: Boolean = rsv2From(finRsvOp)
+  def rsv3: Boolean = rsv3From(finRsvOp)
 
   def isControl = opcode.isControl
   def isData = !isControl

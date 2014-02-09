@@ -133,9 +133,9 @@ final class FrameParser {
   private def parse(input: ByteIterator, state: State): State = state match {
     case ExpectFin =>
       finRsvOp = input.next()
-      fin = finOf(finRsvOp)
+      fin = finFrom(finRsvOp)
 
-      opcode = opcodeOf(finRsvOp)
+      opcode = opcodeFrom(finRsvOp)
       if (opcode.isInvalid || opcode.isReserved) {
         InvalidOpcode
       } else if (opcode.isControl && !fin) {
