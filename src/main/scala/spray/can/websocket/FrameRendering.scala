@@ -20,8 +20,7 @@ object FrameRendering {
             case DataFrame(fin, opcode, payload) =>
               state.pmce map { pmce =>
                 try {
-                  val payload1 = pmce.encode(payload)
-                  frame.copy(rsv1 = true, payload = payload1)
+                  frame.copy(rsv1 = true, payload = pmce.encode(payload))
                 } catch {
                   case ex: Throwable => frame // fallback to uncompressed frame
                 }

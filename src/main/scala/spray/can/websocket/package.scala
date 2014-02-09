@@ -13,6 +13,7 @@ import spray.http.HttpHeaders
 import spray.http.HttpHeaders.Connection
 import spray.http.HttpHeaders.RawHeader
 import spray.http.HttpMethods
+import spray.http.HttpProtocols
 import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.http.StatusCodes
@@ -54,7 +55,7 @@ package object websocket {
 
   object HandshakeRequest {
     def unapply(req: HttpRequest): Option[HandshakeState] = req match {
-      case HttpRequest(HttpMethods.GET, _, HandshakeHeaders(state), _, _) => Some(state)
+      case HttpRequest(HttpMethods.GET, _, HandshakeHeaders(state), _, HttpProtocols.`HTTP/1.1`) => Some(state)
       case _ => None
     }
   }
@@ -119,10 +120,10 @@ package object websocket {
     }
 
     def parseExtensions(extensions: String, removeQuotes: Boolean = true) = {
-      extensions.split(',').map(_.trim).filter(_.length > 0).foldLeft(Map[String, Map[String, String]]()) { (acc, ext) =>
+      extensions.split(',').map(_.trim).filter(_ != "").foldLeft(Map[String, Map[String, String]]()) { (acc, ext) =>
         ext.split(';') match {
           case Array(extension, ps @ _*) =>
-            val params = ps.filter(_.length > 0).foldLeft(Map[String, String]()) { (xs, x) =>
+            val params = ps.filter(_ != "").foldLeft(Map[String, String]()) { (xs, x) =>
               x.split("=").map(_.trim) match {
                 case Array(key, value) => xs + (key.toLowerCase -> stripQuotes_?(value, removeQuotes))
                 case Array(key)        => xs + (key.toLowerCase -> "true")
