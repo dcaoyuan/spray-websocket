@@ -188,9 +188,8 @@ package object websocket {
     private def responseHeaders: List[HttpHeader] = List(
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.Connection("Upgrade"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Accept", acceptanceKey)) ::: {
-        pmce map { _.extensionHeader } toList
-      }
+      HttpHeaders.RawHeader("Sec-WebSocket-Accept", acceptanceKey)) :::
+      pmce.map(_.extensionHeader).fold(List[HttpHeader]())(List(_))
 
     def response = HttpResponse(
       status = StatusCodes.SwitchingProtocols,
