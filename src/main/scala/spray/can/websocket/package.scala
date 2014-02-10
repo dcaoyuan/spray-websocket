@@ -17,6 +17,7 @@ import spray.http.HttpProtocols
 import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.http.StatusCodes
+import spray.http.Uri
 
 package object websocket {
 
@@ -44,8 +45,6 @@ package object websocket {
                     isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue,
                     maskGen: Option[() => Array[Byte]] = None) = (settings: ServerSettings) => {
 
-    import settings._
-    import timeouts._
     WebSocketFrontend(settings, serverHandler) >>
       FrameRendering(maskGen, state) >>
       AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
@@ -54,13 +53,6 @@ package object websocket {
   }
 
   object HandshakeRequest {
-    def unapply(req: HttpRequest): Option[HandshakeState] = req match {
-      case HttpRequest(HttpMethods.GET, _, HandshakeHeaders(state), _, HttpProtocols.`HTTP/1.1`) => Some(state)
-      case _ => None
-    }
-  }
-
-  private object HandshakeHeaders {
     val acceptedVersions = Set("13")
 
     class Collector {
@@ -73,7 +65,12 @@ package object websocket {
       var extensions = Map[String, Map[String, String]]()
     }
 
-    def unapply(headers: List[HttpHeader]): Option[HandshakeState] = {
+    def unapply(req: HttpRequest): Option[HandshakeState] = req match {
+      case HttpRequest(HttpMethods.GET, uri, headers, _, HttpProtocols.`HTTP/1.1`) => tryHandshake(uri, headers)
+      case _ => None
+    }
+
+    def tryHandshake(uri: Uri, headers: List[HttpHeader]): Option[HandshakeState] = {
       val collector = headers.foldLeft(new Collector) { (acc, header) =>
         header match {
           case Connection(connection) =>
@@ -107,11 +104,11 @@ package object websocket {
         pcme match {
           case Some(x) =>
             //if (x.client_max_window_bits == WBITS_NOT_SET) {
-            Some(HandshakeSuccess(key, protocols, extentions, pcme))
+            Some(HandshakeSuccess(uri, key, protocols, extentions, pcme))
           //} else { // does not support server_max_window_bits yet
           //  Some(HandshakeFailure(protocols, extentions))
           //}
-          case None => Some(HandshakeSuccess(key, protocols, extentions, pcme))
+          case None => Some(HandshakeSuccess(uri, key, protocols, extentions, pcme))
         }
 
       } else {
@@ -161,10 +158,12 @@ package object websocket {
       key.getBytes("UTF-8") ++ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11".getBytes("UTF-8")))
 
   sealed trait HandshakeState {
+    def uri: Uri
     def response: HttpResponse
   }
 
   final case class HandshakeFailure(
+    uri: Uri,
     protocal: List[String],
     extensions: Map[String, Map[String, String]]) extends HandshakeState {
 
@@ -178,6 +177,7 @@ package object websocket {
   }
 
   final case class HandshakeSuccess(
+    uri: Uri,
     acceptanceKey: String,
     protocal: List[String],
     extensions: Map[String, Map[String, String]],

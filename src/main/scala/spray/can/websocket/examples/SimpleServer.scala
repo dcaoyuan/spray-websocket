@@ -2,16 +2,12 @@ package spray.can.websocket.examples
 
 import akka.actor.{ ActorSystem, Actor, Props, ActorLogging }
 import akka.io.IO
-import akka.pattern._
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 import spray.can.websocket.frame.BinaryFrame
 import spray.can.websocket.frame.TextFrame
-import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
-import scala.concurrent.duration._
-import HttpHeaders._
-import HttpMethods._
+import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
 

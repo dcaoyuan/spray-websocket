@@ -61,7 +61,7 @@ object WebSocketFrontend {
         case FrameOutEvent(frame)                   => commandPL(FrameCommand(frame))
 
         case FrameInEvent(frame: CloseFrame)        => commandPL(FrameCommand(frame))
-        case FrameInEvent(frame: PongFrame)         => // Server should not receive pong frame, just ignore it
+        case FrameInEvent(frame: PongFrame)         => // Server is not necessary yo receive pong frame, just ignore it
         case FrameInEvent(frame: PingFrame)         => // We'll auto pong it, does not need to tell handler
         case FrameInEvent(frame: ContinuationFrame) => // We should have composed it during lower stage. Anyway, does not need to tell handler
         case FrameInEvent(frame)                    => commandPL(Pipeline.Tell(handler, frame, receiverRef))
@@ -73,7 +73,8 @@ object WebSocketFrontend {
     }
 
     /**
-     * Receive handler's send and put on context.actorContext.self's pipelines head
+     * Receive handler's sending and wrap to Command, then put on the head of
+     * context.actorContext.self's pipelines
      * TODO implement it as UnregisteredActorRef?
      */
     class HandlerResponseReceiver(context: PipelineContext) extends Actor {
