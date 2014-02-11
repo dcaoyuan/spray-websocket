@@ -1,16 +1,11 @@
 package spray.can.client
 
-import spray.can.{Http, HttpExt}
+import spray.can.{ Http, HttpExt }
 import akka.actor.Props
 import spray.can.server.UpgradeSupport
 import spray.can.parsing.SSLSessionInfoSupport
 import spray.io._
 
-/**
- *
- * Copyright (c) 2011, Wandou Labs and/or its affiliates. All rights reserved.
- * WANDOU LABS PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- */
 class UpgradableHttpClientSettingsGroup(settings: ClientConnectionSettings,
                                         httpSettings: HttpExt#Settings)
   extends HttpClientSettingsGroup(settings, httpSettings) {
