@@ -19,12 +19,14 @@ import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
 import spray.io.RawPipelineStage
-import spray.io.SslTlsContext
+import spray.can.client.ClientConnectionSettings
+import spray.can.Http
+import spray.http.HttpResponse
 
 object WebSocketFrontend {
 
-  def apply(settings: ServerSettings, handler: ActorRef) = new RawPipelineStage[SslTlsContext] {
-    def apply(context: SslTlsContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
+  def apply(settings: ServerSettings, handler: ActorRef) = new RawPipelineStage[PipelineContext] {
+    def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
       /**
        * proxy actor between handler and pipelines owner. It behaves as the sender
        * (instead of pipelines owner actor) which is telling handler:
@@ -68,6 +70,7 @@ object WebSocketFrontend {
 
         case ev @ UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case ev: Tcp.ConnectionClosed               => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case Http.MessageEvent(resp: HttpResponse)  => commandPL(Pipeline.Tell(handler, resp, receiverRef))
         case ev                                     => eventPL(ev)
       }
     }
@@ -86,4 +89,7 @@ object WebSocketFrontend {
     }
 
   }
+
+  def apply(settings: ClientConnectionSettings, handler: ActorRef): RawPipelineStage[PipelineContext] = apply(null: ServerSettings, handler)
+
 }
