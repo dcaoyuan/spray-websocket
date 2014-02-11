@@ -96,6 +96,11 @@ abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
            opcode: Opcode = this.opcode,
            payload: ByteString = this.payload) =
     Frame(toFinRsvOp(fin, opcode, rsv1, rsv2, rsv3), payload)
+
+  override def equals(other: Any) = other match {
+    case x: Frame => x.finRsvOp == finRsvOp && x.payload == payload
+    case _ => false
+  }
 }
 
 sealed trait FrameStream extends Closeable {
@@ -106,7 +111,7 @@ sealed trait FrameStream extends Closeable {
   def close {
     if (payload != null) {
       try {
-        payload.close
+        payload.close()
       } catch {
         case _: Throwable =>
       }
@@ -241,3 +246,5 @@ object PongFrame {
 }
 
 final class PongFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
+
+case class Send(f: Frame)

@@ -18,6 +18,7 @@ import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.http.StatusCodes
 import spray.http.Uri
+import spray.can.client.ClientConnectionSettings
 
 package object websocket {
 
@@ -49,6 +50,14 @@ package object websocket {
       FrameRendering(maskGen, state) >>
       AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
       FrameComposing(websocketFrameSizeLimit, state) >>
+      FrameParsing(websocketFrameSizeLimit)
+  }
+
+  def clientPipelineStage(clientHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = None) = (settings: ClientConnectionSettings) => {
+    WebSocketFrontend(settings, clientHandler) >>
+      FrameRendering(maskGen, websocket.FakeHandshakeSuccess) >>
+      AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
+      FrameComposing(websocketFrameSizeLimit, websocket.FakeHandshakeSuccess) >>
       FrameParsing(websocketFrameSizeLimit)
   }
 
@@ -153,6 +162,48 @@ package object websocket {
     }
   }
 
+  object HandshakeResponse {
+    def unapply(resp: HttpResponse): Option[HandshakeResponseHeaders] = resp match {
+      case HttpResponse(StatusCodes.SwitchingProtocols, _, HandshakeResponseHeaders(header), _) => Some(header)
+      case _ => None
+    }
+  }
+
+  object HandshakeResponseHeaders {
+    class Collector {
+      var hasConnection = false
+      var hasUpgrade = false
+
+      var accept = ""
+      var protocal = "" //optional
+    }
+    def unapply(headers: List[HttpHeader]): Option[HandshakeResponseHeaders] = {
+      val collector = headers.foldLeft(new Collector) {
+        case (acc, Connection(Seq("Upgrade"))) =>
+          acc.hasConnection = true
+          acc
+        case (acc, RawHeader("Upgrade", value)) if value.toLowerCase == "websocket" =>
+          acc.hasUpgrade = true
+          acc
+        case (acc, RawHeader("Sec-WebSocket-Accept", accept)) =>
+          acc.accept = accept
+          acc
+        case (acc, RawHeader("Sec-WebSocket-Protocol", protocal)) =>
+          acc.protocal = protocal
+          acc
+        case (acc, _) =>
+          acc
+      }
+
+      if (collector.hasConnection && collector.hasUpgrade) {
+        Some(HandshakeResponseHeaders(collector.accept, collector.protocal.split(',').toList.map(_.trim)))
+      } else {
+        None
+      }
+    }
+  }
+  case class HandshakeResponseHeaders(accept: String, protocal: List[String])
+
   private def acceptanceHash(key: String) = new sun.misc.BASE64Encoder().encode(
     MessageDigest.getInstance("SHA-1").digest(
       key.getBytes("UTF-8") ++ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11".getBytes("UTF-8")))
@@ -196,6 +247,8 @@ package object websocket {
       headers = responseHeaders)
 
   }
+
+  val FakeHandshakeSuccess = new HandshakeSuccess(null, null, null, null, Option.empty[PMCE])
 
 }
 
