@@ -5,19 +5,18 @@ import akka.actor._
 import spray.can.websocket.examples.MySslConfiguration
 import spray.can.{websocket, Http}
 import spray.can.server.UHttp
-import spray.can.websocket.frame.{Frame, TextFrame, BinaryFrame}
-import spray.http.{HttpHeaders, HttpMethods}
+import spray.can.websocket.frame._
+import spray.http._
 import akka.io.{IO, Tcp}
-import spray.http.HttpRequest
-import spray.can.websocket.frame.Send
-import scala.Some
-import spray.http.HttpResponse
 import scala.concurrent.Await
 import org.scalatest.concurrent.Eventually
 import akka.pattern._
 import scala.concurrent.duration._
 import akka.util.ByteString
 import akka.testkit.TestProbe
+import spray.http.HttpRequest
+import spray.can.websocket.frame.Send
+import scala.Some
 
 /**
  *
@@ -67,15 +66,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     }
   }
 
-  val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-    HttpHeaders.Host("localhost", 8080),
-    HttpHeaders.Connection("Upgrade"),
-    HttpHeaders.RawHeader("Upgrade", "websocket"),
-    HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-    HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
-  ))
-
-  class WebsocketClient extends Actor with ActorLogging {
+  class WebsocketClient(req: HttpRequest) extends Actor with ActorLogging {
     var connection: ActorRef = null
     var commander: ActorRef = null
 
@@ -106,20 +97,54 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
   }
 
-  test("handshake") {
-    val server = system.actorOf(Props(new WebSocketServer), "server")
-    val client = system.actorOf(Props(new WebsocketClient), "client")
-
-    val probe = TestProbe()
+  def setupConnection(port: Int, req: HttpRequest): ActorRef = {
+    val server = system.actorOf(Props(new WebSocketServer))
+    val client = system.actorOf(Props(new WebsocketClient(req)))
 
     IO(UHttp).tell(Http.Bind(server, "localhost", 8080), server)
+    Thread.sleep(100)
     IO(UHttp).tell(Http.Connect("localhost", 8080), client)
 
     eventually {
       assert(Await.result(client ? "upgraded?", 1 seconds) == true)
     }(PatienceConfig(timeout = Duration.Inf))
+    client
+  }
 
+  test("handshake") {
+    val port = 8080
+    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
+      HttpHeaders.Host("localhost", port),
+      HttpHeaders.Connection("Upgrade"),
+      HttpHeaders.RawHeader("Upgrade", "websocket"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
+    ))
+    val client = setupConnection(port, req)
+
+    val probe = TestProbe()
     probe.send(client, Send(TextFrame(ByteString("123"))))
     probe.expectMsg(TextFrame(ByteString("123")))
+    probe.send(client, Send(CloseFrame()))
+
   }
+
+  test("handshake with permessage-deflate") {
+    val port = 8081
+    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
+      HttpHeaders.Host("localhost", port),
+      HttpHeaders.Connection("Upgrade"),
+      HttpHeaders.RawHeader("Upgrade", "websocket"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw=="),
+      HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate")
+    ))
+    val client = setupConnection(port, req)
+
+    val probe = TestProbe()
+    probe.send(client, Send(TextFrame(ByteString("123"))))
+    probe.expectMsg(TextFrame(ByteString("123")))
+    probe.send(client, Send(CloseFrame()))
+  }
+
 }
