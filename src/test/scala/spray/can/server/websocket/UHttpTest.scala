@@ -147,4 +147,21 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     probe.send(client, Send(CloseFrame()))
   }
 
+  test("ping pong") {
+    val port = 8082
+    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
+      HttpHeaders.Host("localhost", port),
+      HttpHeaders.Connection("Upgrade"),
+      HttpHeaders.RawHeader("Upgrade", "websocket"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
+    ))
+    val client = setupConnection(port, req)
+
+    val probe = TestProbe()
+    
+    probe.send(client, Send(PingFrame()))
+    probe.expectMsg(PongFrame())
+    probe.send(client, Send(CloseFrame()))
+  }
 }
