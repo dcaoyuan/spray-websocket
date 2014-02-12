@@ -46,15 +46,15 @@ object Frame {
     | (if (rsv1) 0x40 else 0x00)
     | (if (rsv2) 0x20 else 0x00)
     | (if (rsv3) 0x10 else 0x00)
-    | (opcode.code & 0x0F)).toByte
+    | (opcode.code & 0x0f)).toByte
 
-  def finFrom(finRsvOp: Byte): Boolean = ((finRsvOp >> 7) & 1) == 1
-  def rsvFrom(finRsvOp: Byte): Byte = ((finRsvOp >> 4) & 7).toByte
-  def opcodeFrom(finRsvOp: Byte): Opcode = Opcode((finRsvOp & 0xf).toByte)
-
+  def finFrom(finRsvOp: Byte): Boolean = (finRsvOp & 0x80) != 0
   def rsv1From(finRsvOp: Byte): Boolean = (finRsvOp & 0x40) != 0
   def rsv2From(finRsvOp: Byte): Boolean = (finRsvOp & 0x20) != 0
   def rsv3From(finRsvOp: Byte): Boolean = (finRsvOp & 0x10) != 0
+  def opcodeFrom(finRsvOp: Byte): Opcode = Opcode((finRsvOp & 0x0f).toByte)
+
+  def rsvFrom(finRsvOp: Byte): Byte = ((finRsvOp >> 4) & 7).toByte
 
   /**
    * Note fin should be true for control frames.
@@ -79,12 +79,12 @@ abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
   def payload: ByteString = _payload
 
   def fin: Boolean = finFrom(finRsvOp)
-  def rsv: Byte = rsvFrom(finRsvOp)
-  def opcode: Opcode = opcodeFrom(finRsvOp)
-
   def rsv1: Boolean = rsv1From(finRsvOp)
   def rsv2: Boolean = rsv2From(finRsvOp)
   def rsv3: Boolean = rsv3From(finRsvOp)
+  def opcode: Opcode = opcodeFrom(finRsvOp)
+
+  def rsv: Byte = rsvFrom(finRsvOp)
 
   def isControl = opcode.isControl
   def isData = !isControl
@@ -99,7 +99,7 @@ abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
 
   override def equals(other: Any) = other match {
     case x: Frame => x.finRsvOp == finRsvOp && x.payload == payload
-    case _ => false
+    case _        => false
   }
 }
 

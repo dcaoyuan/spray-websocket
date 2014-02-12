@@ -146,7 +146,7 @@ final class FrameParser {
 
     case ExpectMasked =>
       val b1 = input.next()
-      isMasked = ((b1 >> 7) & 1) == 1
+      isMasked = (b1 & 0x80) != 0 // ((b1 >> 7) & 1) == 1
 
       (b1 & 127) match {
         case 126 => ExpectShortPayloadLen
