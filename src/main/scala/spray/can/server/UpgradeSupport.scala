@@ -11,7 +11,7 @@ import spray.can.HttpManager
 import spray.http._
 import spray.io._
 import spray.can.client.{UpgradableHttpClientSettingsGroup, ClientConnectionSettings}
-import spray.can.websocket.{HandshakeSuccess, HandshakeResponse}
+import spray.can.websocket.{HandshakeResponseEvent, HandshakeSuccess, HandshakeResponse}
 import akka.util.{ByteString, CompactByteString}
 import scala.annotation.tailrec
 import spray.can.parsing._
@@ -94,8 +94,7 @@ object UpgradeSupport {
           case Result.NeedMoreData(next) =>
             parser = next
           case Result.Emit(part, closeAfterResponseCompletion, continue) =>
-            eventPipeline(Http.MessageEvent(part))
-            eventPipeline(Tcp.Received(remainingData.get))
+            eventPipeline(HandshakeResponseEvent(part, remainingData.get))
             handle(continue())
           case Result.Expect100Continue(continue) =>
             handle(continue())
@@ -110,10 +109,11 @@ object UpgradeSupport {
 
         val eventPipeline: EPL = {
           case Tcp.Received(data: CompactByteString) => handle(parser(data))
-          case Http.MessageEvent(HandshakeResponse(state)) => {
+          case HandshakeResponseEvent(HandshakeResponse(state), data) => {
             val pipelines = upgradedState(upgradedPipelines(state)(context, commandPL, eventPL))
             become(pipelines)
             pipelines.eventPipeline(UHttp.Upgraded)
+            pipelines.eventPipeline(Tcp.Received(data))
           }
           case event => defaultPipelines.eventPipeline(event)
         }

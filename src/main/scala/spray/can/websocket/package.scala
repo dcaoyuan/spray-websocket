@@ -8,17 +8,15 @@ import spray.can.websocket.compress.PMCE
 import spray.can.websocket.compress.PermessageDeflate
 import spray.can.websocket.frame.{ FrameStream, Frame }
 import spray.can.websocket.server.WebSocketFrontend
-import spray.http.HttpHeader
-import spray.http.HttpHeaders
+import spray.http._
 import spray.http.HttpHeaders.Connection
-import spray.http.HttpHeaders.RawHeader
-import spray.http.HttpMethods
-import spray.http.HttpProtocols
-import spray.http.HttpRequest
-import spray.http.HttpResponse
-import spray.http.StatusCodes
-import spray.http.Uri
 import spray.can.client.ClientConnectionSettings
+import spray.http.HttpRequest
+import spray.http.HttpHeaders.RawHeader
+import scala.Some
+import spray.http.HttpResponse
+import akka.util.ByteString
+import scala.util.Random
 
 package object websocket {
 
@@ -53,7 +51,13 @@ package object websocket {
       FrameParsing(websocketFrameSizeLimit)
   }
 
-  def clientPipelineStage(clientHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = None) = (settings: ClientConnectionSettings) => (state: HandshakeSuccess) => {
+  def defaultMaskGen() = {
+    val mask = Array.fill[Byte](4)(0)
+    Random.nextBytes(mask)
+    mask
+  }
+
+  def clientPipelineStage(clientHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = Option(defaultMaskGen)) = (settings: ClientConnectionSettings) => (state: HandshakeSuccess) => {
     WebSocketFrontend(settings, clientHandler) >>
       FrameRendering(maskGen, state) >>
       AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
@@ -148,7 +152,6 @@ package object websocket {
     def tryHandshake(uri: Uri, headers: List[HttpHeader]): Option[HandshakeState] = {
       parseHeaders(headers) match {
         case Some(collector) if acceptedVersions.contains(collector.version) => {
-          import PermessageDeflate._
           val key = acceptanceHash(collector.key)
           val protocols = collector.protocal
           val extentions = collector.extensions
@@ -180,7 +183,6 @@ package object websocket {
     def tryHandshake(headers: List[HttpHeader]): Option[HandshakeSuccess] = {
       parseHeaders(headers) match {
         case Some(collector) => {
-          import PermessageDeflate._
           val key = collector.accept
           val protocols = collector.protocal
           val extentions = collector.extensions
@@ -246,5 +248,6 @@ package object websocket {
 
   }
 
+  case class HandshakeResponseEvent(resp: HttpMessagePart, data: ByteString) extends Tcp.Event
 }
 
