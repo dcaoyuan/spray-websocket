@@ -42,8 +42,8 @@ object FrameRender {
     def buildFrame(first: Boolean, frame: FrameStream, payload: ByteString) = {
       if (first) {
         frame match {
-          case f: TextFrameStream   => TextFrame(payload)
-          case f: BinaryFrameStream => BinaryFrame(payload)
+          case f: TextFrameStream   => TextFrame(fin = false, payload)
+          case f: BinaryFrameStream => BinaryFrame(fin = false, payload)
         }
       } else {
         ContinuationFrame(payload)
