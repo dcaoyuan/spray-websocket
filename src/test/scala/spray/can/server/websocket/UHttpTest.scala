@@ -17,6 +17,7 @@ import akka.testkit.TestProbe
 import spray.http.HttpRequest
 import spray.can.websocket.frame.Send
 import scala.Some
+import java.io.ByteArrayInputStream
 
 /**
  *
@@ -52,9 +53,18 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
-      case x@(_: BinaryFrame | _: TextFrame) =>
-        log.info("Server Frame1 Received")
+      case x: BinaryFrame =>
+        log.info("Server BinaryFrame Received:" + x)
         sender ! x
+
+      case x: TextFrame =>
+        if (x.payload.length <= 5) {
+          log.info("Server TextFrame Received:" + x)
+          sender ! x
+        } else {
+          log.info("Server Large TextFrame Received:" + x)
+          sender ! TextFrameStream(5, new ByteArrayInputStream(x.payload.toArray))
+        }
 
       case x: HttpRequest => // do something
         log.info("Server HttpRequest Received")
@@ -85,6 +95,11 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     def upgraded: Receive = {
       case Send(frame) =>
         log.info("Client Frame Send")
+        commander = sender
+        connection ! frame
+
+      case SendStream(frame) =>
+        log.info("Client FrameStream Send")
         commander = sender
         connection ! frame
 
@@ -163,5 +178,24 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     probe.send(client, Send(PingFrame()))
     probe.expectMsg(PongFrame())
     probe.send(client, Send(CloseFrame()))
+  }
+
+  test("Frame Stream") {
+    val port = 8083
+    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
+      HttpHeaders.Host("localhost", port),
+      HttpHeaders.Connection("Upgrade"),
+      HttpHeaders.RawHeader("Upgrade", "websocket"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
+    ))
+    val client = setupConnection(port, req)
+
+    val probe = TestProbe()
+    val frame = TextFrameStream(1, new ByteArrayInputStream("a very very long string".getBytes("UTF-8")))
+
+    probe.send(client, SendStream(frame))
+    probe.expectMsg(TextFrame(ByteString("a very very long string")))
+
   }
 }
