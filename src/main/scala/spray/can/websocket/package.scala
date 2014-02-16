@@ -51,7 +51,7 @@ package object websocket {
       FrameParsing(websocketFrameSizeLimit)
   }
 
-  def defaultMaskGen() = {
+  def defaultMaskGen(): Array[Byte] = {
     val mask = Array.fill[Byte](4)(0)
     Random.nextBytes(mask)
     mask
@@ -145,27 +145,25 @@ package object websocket {
     val acceptedVersions = Set("13")
 
     def unapply(req: HttpRequest): Option[HandshakeState] = req match {
-      case HttpRequest(HttpMethods.GET, uri, headers, _, HttpProtocols.`HTTP/1.1`) => tryHandshake(uri, headers)
+      case HttpRequest(HttpMethods.GET, uri, headers, entity, HttpProtocols.`HTTP/1.1`) => tryHandshake(uri, headers, entity)
       case _ => None
     }
 
-    def tryHandshake(uri: Uri, headers: List[HttpHeader]): Option[HandshakeState] = {
+    def tryHandshake(uri: Uri, headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeState] = {
       parseHeaders(headers) match {
         case Some(collector) if acceptedVersions.contains(collector.version) => {
           val key = acceptanceHash(collector.key)
           val protocols = collector.protocal
           val extentions = collector.extensions
 
-          val pcme = extentions.get("permessage-deflate") map (PermessageDeflate(_))
-
-          pcme match {
-            case Some(x) =>
+          extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
+            case Some(pcme) =>
               //if (x.client_max_window_bits == WBITS_NOT_SET) {
-              Some(HandshakeSuccess(uri, key, protocols, extentions, pcme))
+              Some(HandshakeSuccess(uri, key, protocols, extentions, Some(pcme)))
             //} else { // does not support server_max_window_bits yet
             //  Some(HandshakeFailure(protocols, extentions))
             //}
-            case None => Some(HandshakeSuccess(uri, key, protocols, extentions, pcme))
+            case None => Some(HandshakeSuccess(uri, key, protocols, extentions, None))
           }
         }
         case _ => None
@@ -176,27 +174,25 @@ package object websocket {
   object HandshakeResponse extends Handshake {
 
     def unapply(resp: HttpResponse): Option[HandshakeSuccess] = resp match {
-      case HttpResponse(StatusCodes.SwitchingProtocols, _, headers, HttpProtocols.`HTTP/1.1`) => tryHandshake(headers)
+      case HttpResponse(StatusCodes.SwitchingProtocols, entity, headers, HttpProtocols.`HTTP/1.1`) => tryHandshake(headers, entity)
       case _ => None
     }
 
-    def tryHandshake(headers: List[HttpHeader]): Option[HandshakeSuccess] = {
+    def tryHandshake(headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeSuccess] = {
       parseHeaders(headers) match {
         case Some(collector) => {
           val key = collector.accept
           val protocols = collector.protocal
           val extentions = collector.extensions
 
-          val pcme = extentions.get("permessage-deflate") map (PermessageDeflate(_))
-
-          pcme match {
-            case Some(x) =>
+          extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
+            case Some(pcme) =>
               //if (x.client_max_window_bits == WBITS_NOT_SET) {
-              Some(HandshakeSuccess(null, key, protocols, extentions, pcme))
+              Some(HandshakeSuccess(null, key, protocols, extentions, Some(pcme)))
             //} else { // does not support server_max_window_bits yet
             //  Some(HandshakeFailure(protocols, extentions))
             //}
-            case None => Some(HandshakeSuccess(null, key, protocols, extentions, pcme))
+            case None => Some(HandshakeSuccess(null, key, protocols, extentions, None))
           }
         }
         case _ => None

@@ -14,7 +14,7 @@ import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
 import spray.can.websocket.{ FrameStreamCommand, FrameOutEvent, FrameCommand, FrameInEvent }
-import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PongFrame, PingFrame, ContinuationFrame }
+import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame }
 import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -37,14 +37,14 @@ object WebSocketFrontend {
        *   +-------------------+  Frame Out     +---------+
        *   |                   | <-----------   |         |
        *   | WebSocketFrontend |                | Handler |
-       *   |                   | ----------->   |         |
+       *   |  (receiverRef)    | ----------->   |         |
        *   |-------------------|  Frame In      +---------+
        *   |  v             ^  |
        *   |  v             ^  |
        *   |-------------------|
        *   |                   |
        *   |                   |
-       *   |                   |
+       *   |      TCPIO        |
        *   +-------------------+
        *            ^
        *            |
@@ -54,12 +54,12 @@ object WebSocketFrontend {
        *     +--------------+
        *
        */
-      val receiverRef = context.actorContext.actorOf(Props(new HandlerResponseReceiver(context)))
+      private val actorContext = context.actorContext
+      private val receiverRef = actorContext.actorOf(Props(new HandlerResponseReceiver), name = "websocket_receiver")
 
       val commandPipeline = commandPL
 
       val eventPipeline: EPL = {
-
         case FrameOutEvent(frame)                   => commandPL(FrameCommand(frame))
 
         case FrameInEvent(frame: CloseFrame)        => commandPL(FrameCommand(frame))
@@ -70,21 +70,23 @@ object WebSocketFrontend {
         case ev @ UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case ev: Tcp.ConnectionClosed               => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case Http.MessageEvent(resp: HttpResponse)  => commandPL(Pipeline.Tell(handler, resp, receiverRef))
+
         case ev                                     => eventPL(ev)
       }
-    }
 
-    /**
-     * Receive handler's sending and wrap to Command, then put on the head of
-     * context.actorContext.self's pipelines
-     * TODO implement it as UnregisteredActorRef?
-     */
-    class HandlerResponseReceiver(context: PipelineContext) extends Actor {
-      def receive = {
-        case x: Frame       => context.actorContext.self ! FrameCommand(x)
-        case x: FrameStream => context.actorContext.self ! FrameStreamCommand(x)
-        case Tcp.Close      => context.actorContext.self ! Tcp.Close
+      /**
+       * Receive handler's sending and wrap to Command, then put on the head of
+       * context.actorContext.self's pipelines
+       * TODO implement it as UnregisteredActorRef?
+       */
+      class HandlerResponseReceiver extends Actor {
+        def receive = {
+          case x: Frame       => actorContext.self ! FrameCommand(x)
+          case x: FrameStream => actorContext.self ! FrameStreamCommand(x)
+          case Tcp.Close      => actorContext.self ! Tcp.Close
+        }
       }
+
     }
 
   }
