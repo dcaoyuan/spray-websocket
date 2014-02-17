@@ -55,7 +55,7 @@ object WebSocketFrontend {
        *
        */
       private val actorContext = context.actorContext
-      private val receiverRef = actorContext.actorOf(Props(new HandlerResponseReceiver), name = "websocket_receiver")
+      private val receiverRef = actorContext.actorOf(Props(new HandlerResponseReceiver)) // don't specify unique name
 
       val commandPipeline = commandPL
 
