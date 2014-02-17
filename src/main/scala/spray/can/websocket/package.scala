@@ -223,7 +223,7 @@ package object websocket {
 
   }
 
-  final case class HandshakeSuccess(
+  case class HandshakeSuccess(
     uri: Uri,
     acceptanceKey: String,
     protocal: List[String],
@@ -242,6 +242,10 @@ package object websocket {
       status = StatusCodes.SwitchingProtocols,
       headers = responseHeaders)
 
+    def withResponse(resp: HttpResponse) =
+      new HandshakeSuccess(uri, acceptanceKey, protocal, extensions, pmce) {
+        override def response = resp
+      }
   }
 
   case class HandshakeResponseEvent(resp: HttpMessagePart, data: ByteString) extends Tcp.Event

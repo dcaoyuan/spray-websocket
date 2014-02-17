@@ -31,7 +31,7 @@ object WebSocketFrontend {
        * proxy actor between handler and pipelines owner. It behaves as the sender
        * (instead of pipelines owner actor) which is telling handler:
        *
-       *   pipelines' owner <-> receiverRef <-> handler
+       *   HttpServerConnection(pipelines' owner) <-> receiverRef <-> handler
        *
        *
        *   +-------------------+  Frame Out     +---------+
@@ -67,7 +67,7 @@ object WebSocketFrontend {
         case FrameInEvent(frame: ContinuationFrame) => // We should have composed it during lower stage. Anyway, does not need to tell handler
         case FrameInEvent(frame)                    => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
-        case ev @ UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case ev: UHttp.Upgraded                     => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case ev: Tcp.ConnectionClosed               => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case Http.MessageEvent(resp: HttpResponse)  => commandPL(Pipeline.Tell(handler, resp, receiverRef))
 

@@ -33,11 +33,11 @@ object SimpleServer extends App with MySslConfiguration {
       case websocket.HandshakeRequest(state) =>
         state match {
           case x: websocket.HandshakeFailure => sender() ! x.response
-          case x: websocket.HandshakeSuccess => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, x), Some(x.response))
+          case x: websocket.HandshakeSuccess => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, x), x)
         }
 
       // upgraded successfully
-      case UHttp.Upgraded =>
+      case UHttp.Upgraded(state) =>
         log.info("Http Upgraded!")
     }
 
