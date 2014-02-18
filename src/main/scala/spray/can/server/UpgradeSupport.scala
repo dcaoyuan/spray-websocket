@@ -11,7 +11,7 @@ import spray.can.HttpManager
 import spray.http._
 import spray.io._
 import spray.can.client.{ UpgradableHttpClientSettingsGroup, ClientConnectionSettings }
-import spray.can.websocket.{ HandshakeResponseEvent, HandshakeSuccess, HandshakeResponse }
+import spray.can.websocket.{ HandshakeResponseEvent, HandshakeContext, HandshakeResponse }
 import akka.util.{ ByteString, CompactByteString }
 import scala.annotation.tailrec
 import spray.can.parsing._
@@ -76,7 +76,7 @@ object UpgradeSupport {
         val eventPipeline = epl
       }
 
-      def upgradingState(defaultPipelines: Pipelines, upgradedPipelines: HandshakeSuccess => PipelineStage) = new State {
+      def upgradingState(defaultPipelines: Pipelines, upgradedPipelines: HandshakeContext => PipelineStage) = new State {
         var remainingData: Option[ByteString] = None
         var parser: Parser = new HttpResponsePartParser(settings.parserSettings)() {
           override def parseEntity(headers: List[HttpHeader], input: ByteString, bodyStart: Int, clh: Option[`Content-Length`],
@@ -144,9 +144,9 @@ object UpgradeSupport {
  */
 object UHttp extends ExtensionKey[UHttpExt] {
   // upgrades -- clould be in spray.can.Http, since Upgrade is part of HTTP spec.
-  case class Upgrade(pipelineStage: ServerSettings ⇒ RawPipelineStage[SslTlsContext], state: HandshakeSuccess) extends Tcp.Command
-  case class UpgradeClient(pipelineStage: ClientConnectionSettings => HandshakeSuccess => RawPipelineStage[PipelineContext], req: Option[HttpRequest]) extends Tcp.Command
-  case class Upgraded(state: HandshakeSuccess) extends Tcp.Event
+  case class Upgrade(pipelineStage: ServerSettings ⇒ RawPipelineStage[SslTlsContext], wsContext: HandshakeContext) extends Tcp.Command
+  case class UpgradeClient(pipelineStage: ClientConnectionSettings => HandshakeContext => RawPipelineStage[PipelineContext], req: Option[HttpRequest]) extends Tcp.Command
+  case class Upgraded(state: HandshakeContext) extends Tcp.Event
 }
 
 class UHttpExt(system: ExtendedActorSystem) extends HttpExt(system) {

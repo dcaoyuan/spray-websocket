@@ -23,12 +23,12 @@ object SimpleServer extends App with MySslConfiguration {
       // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
       case websocket.HandshakeRequest(state) =>
         state match {
-          case x: websocket.HandshakeFailure => sender() ! x.response
-          case x: websocket.HandshakeSuccess => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, x), x)
+          case wsFailure: websocket.HandshakeFailure => sender() ! wsFailure.response
+          case wsContext: websocket.HandshakeContext => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, wsContext), wsContext)
         }
 
       // upgraded successfully
-      case UHttp.Upgraded(state) =>
+      case UHttp.Upgraded(wsContext) =>
         log.info("Http Upgraded!")
     }
 

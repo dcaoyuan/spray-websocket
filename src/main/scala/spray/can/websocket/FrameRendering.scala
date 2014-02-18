@@ -10,7 +10,7 @@ import spray.io.PipelineStage
 
 object FrameRendering {
 
-  def apply(maskingKeyGen: Option[() => Array[Byte]], state: HandshakeSuccess) = new PipelineStage {
+  def apply(maskingKeyGen: Option[() => Array[Byte]], wsContext: HandshakeContext) = new PipelineStage {
     def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
       def maskingKey = maskingKeyGen.fold(Array.empty[Byte])(_())
 
@@ -18,7 +18,7 @@ object FrameRendering {
         case FrameCommand(frame) =>
           val frame1 = frame match {
             case DataFrame(fin, opcode, payload) =>
-              state.pmce map { pmce =>
+              wsContext.pmce map { pmce =>
                 try {
                   frame.copy(rsv1 = true, payload = pmce.encode(payload))
                 } catch {

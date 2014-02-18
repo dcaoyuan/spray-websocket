@@ -11,7 +11,7 @@ import spray.io.Pipelines
 
 object FrameComposing {
 
-  def apply(messageSizeLimit: Long, state: HandshakeSuccess) = new PipelineStage {
+  def apply(messageSizeLimit: Long, wsContext: HandshakeContext) = new PipelineStage {
     def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
 
       var fragmentFrames: List[Frame] = Nil // TODO as an interface that can be adapted to outside cache
@@ -20,7 +20,7 @@ object FrameComposing {
 
       val eventPipeline: EPL = {
 
-        case FrameInEvent(x) if (x.rsv1 && !state.isCompressionNegotiated) || x.rsv2 || x.rsv3 =>
+        case FrameInEvent(x) if (x.rsv1 && !wsContext.isCompressionNegotiated) || x.rsv2 || x.rsv3 =>
           closeWithReason(StatusCode.ProtocolError,
             "RSV MUST be 0 unless an extension is negotiated that defines meanings for non-zero values.")
           fragmentFrames = Nil
@@ -43,7 +43,7 @@ object FrameComposing {
                 val head :: tail = (x :: fragmentFrames).reverse
                 val finFrame = tail.foldLeft(head) { (acc, cont) => acc.copy(payload = acc.payload ++ cont.payload) }
 
-                val payload1 = state.pmce match {
+                val payload1 = wsContext.pmce match {
                   case Some(pcme) if finFrame.rsv1 =>
                     try {
                       Some(pcme.decode(finFrame.payload, true))
