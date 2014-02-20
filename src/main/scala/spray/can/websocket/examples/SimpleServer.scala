@@ -11,6 +11,10 @@ import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
 
+  /**
+   * This is actually a singleton actor due to akka IO machanism, we can only
+   * identify each client-connection by underlying sender()
+   */
   class WebSocketServer extends Actor with ActorLogging {
     def receive = handshaking orElse businessLogic
 
