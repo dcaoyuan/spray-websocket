@@ -45,10 +45,10 @@ package object websocket {
                     maskGen: Option[() => Array[Byte]] = None) = (settings: ServerSettings) => {
 
     WebSocketFrontend(settings, serverHandler) >>
-      FrameRendering(maskGen, wsContext) >>
-      AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
-      FrameComposing(wsFrameSizeLimit, wsContext) >>
-      FrameParsing(wsFrameSizeLimit)
+    FrameRendering(maskGen, wsContext) >>
+    AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
+    FrameComposing(wsFrameSizeLimit, wsContext) >>
+    FrameParsing(wsFrameSizeLimit)
   }
 
   def defaultMaskGen(): Array[Byte] = {
@@ -59,10 +59,10 @@ package object websocket {
 
   def clientPipelineStage(clientHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = Option(defaultMaskGen)) = (settings: ClientConnectionSettings) => (state: HandshakeContext) => {
     WebSocketFrontend(settings, clientHandler) >>
-      FrameRendering(maskGen, state) >>
-      AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
-      FrameComposing(websocketFrameSizeLimit, state) >>
-      FrameParsing(websocketFrameSizeLimit)
+    FrameRendering(maskGen, state) >>
+    AutoPong(isAutoPongEnabled) ? isAutoPongEnabled >>
+    FrameComposing(websocketFrameSizeLimit, state) >>
+    FrameParsing(websocketFrameSizeLimit)
   }
 
   sealed trait Handshake {
@@ -145,27 +145,27 @@ package object websocket {
     val acceptedVersions = Set("13")
 
     def unapply(req: HttpRequest): Option[HandshakeState] = req match {
-      case HttpRequest(HttpMethods.GET, uri, headers, entity, HttpProtocols.`HTTP/1.1`) => tryHandshake(uri, headers, entity)
+      case HttpRequest(HttpMethods.GET, uri, headers, entity, HttpProtocols.`HTTP/1.1`) => tryHandshake(req, headers, entity)
       case _ => None
     }
 
-    def tryHandshake(uri: Uri, headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeState] = {
+    def tryHandshake(req: HttpRequest, headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeState] = {
       parseHeaders(headers) match {
         case Some(collector) if acceptedVersions.contains(collector.version) => {
-          val key = acceptanceHash(collector.key)
-          val protocols = collector.protocal
-          val extentions = collector.extensions
+            val key = acceptanceHash(collector.key)
+            val protocols = collector.protocal
+            val extentions = collector.extensions
 
-          extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
-            case Some(pcme) =>
-              //if (x.client_max_window_bits == WBITS_NOT_SET) {
-              Some(HandshakeContext(uri, key, protocols, extentions, Some(pcme)))
-            //} else { // does not support server_max_window_bits yet
-            //  Some(HandshakeFailure(protocols, extentions))
-            //}
-            case None => Some(HandshakeContext(uri, key, protocols, extentions, None))
+            extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
+              case Some(pcme) =>
+                //if (x.client_max_window_bits == WBITS_NOT_SET) {
+                Some(HandshakeContext(req, key, protocols, extentions, Some(pcme)))
+                //} else { // does not support server_max_window_bits yet
+                //  Some(HandshakeFailure(protocols, extentions))
+                //}
+              case None => Some(HandshakeContext(req, key, protocols, extentions, None))
+            }
           }
-        }
         case _ => None
       }
     }
@@ -181,20 +181,20 @@ package object websocket {
     def tryHandshake(headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeContext] = {
       parseHeaders(headers) match {
         case Some(collector) => {
-          val key = collector.accept
-          val protocols = collector.protocal
-          val extentions = collector.extensions
+            val key = collector.accept
+            val protocols = collector.protocal
+            val extentions = collector.extensions
 
-          extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
-            case Some(pcme) =>
-              //if (x.client_max_window_bits == WBITS_NOT_SET) {
-              Some(HandshakeContext(null, key, protocols, extentions, Some(pcme)))
-            //} else { // does not support server_max_window_bits yet
-            //  Some(HandshakeFailure(protocols, extentions))
-            //}
-            case None => Some(HandshakeContext(null, key, protocols, extentions, None))
+            extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
+              case Some(pcme) =>
+                //if (x.client_max_window_bits == WBITS_NOT_SET) {
+                Some(HandshakeContext(null, key, protocols, extentions, Some(pcme)))
+                //} else { // does not support server_max_window_bits yet
+                //  Some(HandshakeFailure(protocols, extentions))
+                //}
+              case None => Some(HandshakeContext(null, key, protocols, extentions, None))
+            }
           }
-        }
         case _ => None
       }
     }
@@ -205,12 +205,12 @@ package object websocket {
       key.getBytes("UTF-8") ++ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11".getBytes("UTF-8")))
 
   sealed trait HandshakeState {
-    def uri: Uri
+    def request: HttpRequest
     def response: HttpResponse
   }
 
   final case class HandshakeFailure(
-    uri: Uri,
+    request: HttpRequest,
     protocal: List[String],
     extensions: Map[String, Map[String, String]]) extends HandshakeState {
 
@@ -224,7 +224,7 @@ package object websocket {
   }
 
   case class HandshakeContext(
-    uri: Uri,
+    request: HttpRequest,
     acceptanceKey: String,
     protocal: List[String],
     extensions: Map[String, Map[String, String]],
@@ -236,14 +236,14 @@ package object websocket {
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Sec-WebSocket-Accept", acceptanceKey)) :::
-      pmce.map(_.extensionHeader).fold(List[HttpHeader]())(List(_))
+    pmce.map(_.extensionHeader).fold(List[HttpHeader]())(List(_))
 
     def response = HttpResponse(
       status = StatusCodes.SwitchingProtocols,
       headers = responseHeaders)
 
     def withResponse(resp: HttpResponse) =
-      new HandshakeContext(uri, acceptanceKey, protocal, extensions, pmce) {
+      new HandshakeContext(request, acceptanceKey, protocal, extensions, pmce) {
         override def response = resp
       }
   }
