@@ -2,11 +2,17 @@ package spray.can.websocket
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
+import akka.actor.ActorRef
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 
 trait BaseWebSocketConnection extends Actor with ActorLogging {
+  /**
+   * The HttpServerConnection actor, which holds the pipelines
+   */
+  def serverConnection: ActorRef
+
   def receive = handshaking orElse closeLogic
 
   def closeLogic: Receive = {

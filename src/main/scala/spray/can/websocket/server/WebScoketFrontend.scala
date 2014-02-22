@@ -33,7 +33,7 @@ object WebSocketFrontend {
        *
        *   HttpServerConnection(pipelines' owner) <-> receiverRef <-> handler
        *
-       *
+       *    ServerConnection
        *   +-------------------+  Frame Out     +---------+
        *   |                   | <-----------   |         |
        *   | WebSocketFrontend |                | Handler |

@@ -14,11 +14,17 @@ package spray.can.websocket
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
+import akka.actor.ActorRef
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 
 trait BaseWebSocketConnection extends Actor with ActorLogging {
+  /**
+   * The HttpServerConnection actor, which holds the pipelines
+   */
+  def serverConnection: ActorRef
+
   def receive = handshaking orElse closeLogic
 
   def closeLogic: Receive = {
@@ -56,7 +62,7 @@ A simple example:
 
 package spray.can.websocket.examples
 
-import akka.actor.{ ActorSystem, Actor, Props, ActorLogging }
+import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef }
 import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
@@ -71,12 +77,13 @@ object SimpleServer extends App with MySslConfiguration {
     def receive = {
       // when a new connection comes in we register a WebSocketConnection actor as the per connection handler
       case Http.Connected(remoteAddress, localAddress) =>
-        val conn = context.actorOf(Props(classOf[WebSocketConnection]))
-        sender() ! Http.Register(conn)
+        val serverConnection = sender()
+        val conn = context.actorOf(Props(classOf[WebSocketConnection], serverConnection))
+        serverConnection ! Http.Register(conn)
     }
   }
 
-  class WebSocketConnection extends websocket.BaseWebSocketConnection {
+  class WebSocketConnection(val serverConnection: ActorRef) extends websocket.BaseWebSocketConnection {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
