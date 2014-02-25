@@ -7,7 +7,7 @@ import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 
-trait BaseWebSocketConnection extends Actor with ActorLogging {
+trait WebSocketConnection extends Actor with ActorLogging {
   /**
    * The HttpServerConnection actor, which holds the pipelines
    */

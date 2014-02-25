@@ -16,12 +16,12 @@ object SimpleServer extends App with MySslConfiguration {
       // when a new connection comes in we register a WebSocketConnection actor as the per connection handler
       case Http.Connected(remoteAddress, localAddress) =>
         val serverConnection = sender()
-        val conn = context.actorOf(Props(classOf[WebSocketConnection], serverConnection))
+        val conn = context.actorOf(Props(classOf[WebSocketWorker], serverConnection))
         serverConnection ! Http.Register(conn)
     }
   }
 
-  class WebSocketConnection(val serverConnection: ActorRef) extends websocket.BaseWebSocketConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketConnection {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>

@@ -6,7 +6,7 @@ WebSocket for spray-can
 Example:
 
 
-The BaseWebSocketConnection which could be extended to your WebSocketConnection by overriding businessLogic
+The WebSocketConnection which could be extended to your WebSocketWorker by overriding businessLogic
 
 ```scala
 
@@ -19,7 +19,7 @@ import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 
-trait BaseWebSocketConnection extends Actor with ActorLogging {
+trait WebSocketConnection extends Actor with ActorLogging {
   /**
    * The HttpServerConnection actor, which holds the pipelines
    */
@@ -83,7 +83,7 @@ object SimpleServer extends App with MySslConfiguration {
     }
   }
 
-  class WebSocketConnection(val serverConnection: ActorRef) extends websocket.BaseWebSocketConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketConnection {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
