@@ -63,7 +63,6 @@ object WebSocketFrontend {
         case FrameOutEvent(frame)                   => commandPL(FrameCommand(frame))
 
         case FrameInEvent(frame: CloseFrame)        => commandPL(FrameCommand(frame))
-        case FrameInEvent(frame: PingFrame)         => // We'll auto pong it, does not need to tell handler
         case FrameInEvent(frame: ContinuationFrame) => // We should have composed it during lower stage. Anyway, does not need to tell handler
         case FrameInEvent(frame)                    => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 

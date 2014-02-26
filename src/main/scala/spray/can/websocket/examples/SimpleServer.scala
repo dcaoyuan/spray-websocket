@@ -5,8 +5,7 @@ import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
-import spray.can.websocket.frame.BinaryFrame
-import spray.can.websocket.frame.TextFrame
+import spray.can.websocket.frame.{ PingFrame, PongFrame, BinaryFrame, TextFrame }
 import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
@@ -18,6 +17,8 @@ object SimpleServer extends App with MySslConfiguration {
         val serverConnection = sender()
         val conn = context.actorOf(Props(classOf[WebSocketWorker], serverConnection))
         serverConnection ! Http.Register(conn)
+      case PingFrame(payload) =>
+        sender() ! PongFrame(payload)
     }
   }
 

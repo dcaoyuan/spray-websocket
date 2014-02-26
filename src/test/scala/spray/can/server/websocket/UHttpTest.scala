@@ -16,7 +16,6 @@ import akka.util.ByteString
 import akka.testkit.TestProbe
 import spray.http.HttpRequest
 import spray.can.websocket.frame.Send
-import scala.Some
 import java.io.ByteArrayInputStream
 
 /**
@@ -27,32 +26,24 @@ import java.io.ByteArrayInputStream
 class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MySslConfiguration {
   implicit val system = ActorSystem()
   implicit val timeout = akka.util.Timeout(5 seconds)
+  import system.dispatcher
 
   override def afterAll: Unit = system.shutdown()
 
   class WebSocketServer extends Actor with ActorLogging {
-    def receive = upgrading orElse businessLogic
-
-    def upgrading: Receive = {
-      // when a new connection comes in we register ourselves as the connection handler
+    def receive = {
+      // when a new connection comes in we register a WebSocketConnection actor as the per connection handler
       case Http.Connected(remoteAddress, localAddress) =>
-        sender ! Http.Register(self)
-
-      // when a client request for upgrading to websocket comes in, we send
-      // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
-      case websocket.HandshakeRequest(state) =>
-        state match {
-          case x: websocket.HandshakeFailure => sender() ! x.response
-          case x: websocket.HandshakeSuccess => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, x), Some(x.response))
-        }
-
-      // upgraded successfully
-      case UHttp.Upgraded =>
-        log.info("Server Upgraded!")
+        val serverConnection = sender()
+        val conn = context.actorOf(Props(new WebSocketWorker(serverConnection)))
+        serverConnection ! Http.Register(conn)
+      case PingFrame(payload) =>
+        sender() ! PongFrame(payload)
     }
+  }
 
+  class WebSocketWorker(var serverConnection: ActorRef) extends websocket.WebSocketConnection {
     def businessLogic: Receive = {
-      // just bounce frames back for Autobahn testsuite
       case x: BinaryFrame =>
         log.info("Server BinaryFrame Received:" + x)
         sender ! x
@@ -86,7 +77,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
         connection = sender
         connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), Option(req))
 
-      case UHttp.Upgraded =>
+      case UHttp.Upgraded(wsContext) =>
         log.info("Client Upgraded!")
         connection = sender
         context.become(upgraded)
