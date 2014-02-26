@@ -7,11 +7,8 @@ import spray.can.Http
 import spray.can.HttpExt
 import spray.can.parsing.SSLSessionInfoSupport
 import spray.can.server.StatsSupport.StatsHolder
-import spray.io.BackPressureHandling
-import spray.io.ConnectionTimeouts
-import spray.io.PreventHalfClosedConnections
-import spray.io.SslTlsSupport
-import spray.io.TickGenerator
+import spray.io._
+import scala.Some
 
 /**
  * The only diff from HttpListener is:
@@ -66,7 +63,7 @@ private object UpgradableHttpListener {
     } >>
       ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite) >>
       PreventHalfClosedConnections(sslEncryption) >>
-      SslTlsSupport(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) ? sslEncryption >>
+      SslTlsSupportV2(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) ? sslEncryption >>
       TickGenerator(reapingCycle) ? (reapingCycle.isFinite && (idleTimeout.isFinite || requestTimeout.isFinite)) >>
       BackPressureHandling(backpressureSettings.get.noAckRate, backpressureSettings.get.readingLowWatermark) ? autoBackPressureEnabled
   }
