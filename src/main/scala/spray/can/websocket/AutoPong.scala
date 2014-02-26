@@ -9,19 +9,16 @@ import spray.io.PipelineContext
 import spray.io.Pipelines
 import spray.io.PipelineStage
 
-object AutoPong {
+object AutoPong extends PipelineStage {
+  def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
 
-  def apply(enabled: Boolean = true) = new PipelineStage {
-    def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
+    val commandPipeline = commandPL
 
-      val commandPipeline = commandPL
+    val eventPipeline: EPL = {
+      case FrameInEvent(x: PingFrame) =>
+        commandPL(FrameCommand(x.copy(opcode = Opcode.Pong)))
 
-      val eventPipeline: EPL = {
-        case FrameInEvent(x: PingFrame) =>
-          eventPL(FrameOutEvent(x.copy(opcode = Opcode.Pong)))
-
-        case ev => eventPL(ev)
-      }
+      case ev => eventPL(ev)
     }
   }
 }

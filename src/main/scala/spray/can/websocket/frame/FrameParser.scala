@@ -107,10 +107,12 @@ final class FrameParser {
     }
 
     // parse and see if we've finished a frame, notice listener and reset state if true
+    // @Note must change state before the 'stateListener', because we are not sure about
+    // what's will happen during stateListener(x), for instance, the listener might
+    // call 'process()' func recursively.
     parse(input, state) match {
       case x: Failure => // with error, should drop remaining input
         input = ByteString.empty.iterator
-        // must change state before the 'stateListener', because the listener might call 'process' func recursively
         state = ExpectFin
         stateListener(x)
 
@@ -122,7 +124,8 @@ final class FrameParser {
         state = ExpectFin
         stateListener(Success(Frame(finRsvOp, ByteString.empty)))
 
-      case x => state = x
+      case x =>
+        state = x
     }
 
     // has more data? go on if true, else wait for more input

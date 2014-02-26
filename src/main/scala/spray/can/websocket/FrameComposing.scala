@@ -93,7 +93,7 @@ object FrameComposing {
 
       def closeWithReason(statusCode: StatusCode, reason: String = "") = {
         context.log.debug("To close with statusCode: {}, reason: {}", statusCode, reason)
-        eventPL(FrameOutEvent(CloseFrame(statusCode, reason)))
+        commandPL(FrameCommand(CloseFrame(statusCode, reason)))
       }
     }
   }

@@ -7,8 +7,11 @@ import spray.can.Http
 import spray.can.HttpExt
 import spray.can.parsing.SSLSessionInfoSupport
 import spray.can.server.StatsSupport.StatsHolder
-import spray.io._
-import scala.Some
+import spray.io.BackPressureHandling
+import spray.io.ConnectionTimeouts
+import spray.io.PreventHalfClosedConnections
+import spray.io.SslTlsSupportV2
+import spray.io.TickGenerator
 
 /**
  * The only diff from HttpListener is:

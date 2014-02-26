@@ -13,7 +13,7 @@ import akka.actor.Props
 import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
-import spray.can.websocket.{ FrameStreamCommand, FrameOutEvent, FrameCommand, FrameInEvent }
+import spray.can.websocket.{ FrameStreamCommand, FrameCommand, FrameInEvent }
 import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame }
 import spray.io.Pipeline
 import spray.io.PipelineContext
@@ -60,17 +60,16 @@ object WebSocketFrontend {
       val commandPipeline = commandPL
 
       val eventPipeline: EPL = {
-        case FrameOutEvent(frame)                   => commandPL(FrameCommand(frame))
+        case FrameInEvent(frame: CloseFrame)       => commandPL(FrameCommand(frame))
+        case FrameInEvent(_: ContinuationFrame)    => // We should have composed it during lower stage. Anyway, does not need to tell handler
+        case FrameInEvent(_: PingFrame)            => // will be auto processed by AutoPong stage
+        case FrameInEvent(frame)                   => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
-        case FrameInEvent(frame: CloseFrame)        => commandPL(FrameCommand(frame))
-        case FrameInEvent(frame: ContinuationFrame) => // We should have composed it during lower stage. Anyway, does not need to tell handler
-        case FrameInEvent(frame)                    => commandPL(Pipeline.Tell(handler, frame, receiverRef))
+        case ev: UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case ev: Tcp.ConnectionClosed              => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case Http.MessageEvent(resp: HttpResponse) => commandPL(Pipeline.Tell(handler, resp, receiverRef))
 
-        case ev: UHttp.Upgraded                     => commandPL(Pipeline.Tell(handler, ev, receiverRef))
-        case ev: Tcp.ConnectionClosed               => commandPL(Pipeline.Tell(handler, ev, receiverRef))
-        case Http.MessageEvent(resp: HttpResponse)  => commandPL(Pipeline.Tell(handler, resp, receiverRef))
-
-        case ev                                     => eventPL(ev)
+        case ev                                    => eventPL(ev)
       }
 
       /**
