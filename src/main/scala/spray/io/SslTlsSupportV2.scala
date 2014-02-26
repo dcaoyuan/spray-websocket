@@ -179,11 +179,15 @@ object SslTlsSupportV2 {
           def startSending(write: Tcp.WriteCommand, remainingOutgoingData: Stream[WriteChunk],
                            closedEvent: Option[Tcp.ConnectionClosed], sendNow: Boolean): Unit =
             if (closedEvent.isEmpty) {
-              if (remainingOutgoingData.isEmpty) {
-                val chunkStream = writeChunkStream(write)
-                if (chunkStream.nonEmpty) startEncrypting(chunkStream, sendNow)
-                // else ignore
-              } else failWrite(write, "there is already another write in progress")
+              val chunkStream = writeChunkStream(write)
+              if (chunkStream.nonEmpty) {
+                if (remainingOutgoingData.isEmpty) {
+                  startEncrypting(chunkStream, sendNow)
+                } else {
+                  become(waitingForAck(remainingOutgoingData append chunkStream, closedEvent))
+                }
+              }
+              // else ignore
             } else failWrite(write, "the SSL connection is already closing")
 
           def startEncrypting(chunkStream: Stream[WriteChunk],
