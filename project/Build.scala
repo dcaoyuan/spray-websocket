@@ -29,7 +29,7 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val spray_can = "io.spray" % "spray-can" % "1.3-RC1"
-  val spray_testkit = "io.spray" % "spray-testkit" % "1.3-RC1"
+  val spray_testkit = "io.spray" % "spray-testkit" % "1.3-RC1" % "test"
   val akka_actor = "com.typesafe.akka" %% "akka-actor" % "2.3.0-RC1"
   val akka_testkit = "com.typesafe.akka" %% "akka-testkit" % "2.3.0-RC1" % "test"
   val scalatest = "org.scalatest" %% "scalatest" % "2.0" % "test"
