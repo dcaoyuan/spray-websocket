@@ -46,7 +46,7 @@ private object UpgradableHttpClientConnection {
         RequestRendering(settings) >>
         ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite)
     } >>
-      SslTlsSupport(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) >>
+      SslTlsSupportV2(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) >>
       TickGenerator(reapingCycle) ? (idleTimeout.isFinite || requestTimeout.isFinite)
   }
 }
