@@ -1,4 +1,4 @@
-package spray.can.websocket.server
+package spray.can.websocket
 
 /**
  * This pipeline stage simply forwards the events to and receives commands from
@@ -13,7 +13,6 @@ import akka.actor.Props
 import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
-import spray.can.websocket.{ FrameStreamCommand, FrameCommand, FrameInEvent }
 import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame, Opcode }
 import spray.io.Pipeline
 import spray.io.PipelineContext

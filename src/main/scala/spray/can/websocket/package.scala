@@ -2,21 +2,24 @@ package spray.can
 
 import akka.actor.ActorRef
 import akka.io.Tcp
+import akka.util.ByteString
 import java.security.MessageDigest
+import scala.util.Random
+import spray.can.client.ClientConnectionSettings
 import spray.can.server.ServerSettings
 import spray.can.websocket.compress.PMCE
 import spray.can.websocket.compress.PermessageDeflate
 import spray.can.websocket.frame.{ FrameStream, Frame }
-import spray.can.websocket.server.WebSocketFrontend
-import spray.http._
+import spray.http.HttpEntity
+import spray.http.HttpHeader
+import spray.http.HttpHeaders
 import spray.http.HttpHeaders.Connection
-import spray.can.client.ClientConnectionSettings
-import spray.http.HttpRequest
 import spray.http.HttpHeaders.RawHeader
-import scala.Some
+import spray.http.HttpMessagePart
+import spray.http.HttpProtocols
+import spray.http.HttpRequest
 import spray.http.HttpResponse
-import akka.util.ByteString
-import scala.util.Random
+import spray.http.StatusCodes
 
 package object websocket {
 
@@ -141,7 +144,7 @@ package object websocket {
     val acceptedVersions = Set("13")
 
     def unapply(req: HttpRequest): Option[HandshakeState] = req match {
-      case HttpRequest(HttpMethods.GET, uri, headers, entity, HttpProtocols.`HTTP/1.1`) => tryHandshake(req, headers, entity)
+      case HttpRequest(_, uri, headers, entity, HttpProtocols.`HTTP/1.1`) => tryHandshake(req, headers, entity)
       case _ => None
     }
 
