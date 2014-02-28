@@ -70,8 +70,7 @@ import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
-import spray.can.websocket.frame.BinaryFrame
-import spray.can.websocket.frame.TextFrame
+import spray.can.websocket.frame.{ BinaryFrame, TextFrame }
 import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
@@ -81,7 +80,7 @@ object SimpleServer extends App with MySslConfiguration {
       // when a new connection comes in we register a WebSocketConnection actor as the per connection handler
       case Http.Connected(remoteAddress, localAddress) =>
         val serverConnection = sender()
-        val conn = context.actorOf(Props(classOf[WebSocketConnection], serverConnection))
+        val conn = context.actorOf(Props(classOf[WebSocketWorker], serverConnection))
         serverConnection ! Http.Register(conn)
     }
   }
