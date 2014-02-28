@@ -249,6 +249,30 @@ class SslTlsSupportSpec extends Specification with NoTimeConversions {
       TestUtils.verifyActorTermination(clientConn.handler)
       server.close()
     }
+
+    "properly handle write multiple frames at the same time" in new TestSetup {
+      val server = new SpraySslServer
+      val connAttempt = attemptSpraySslClientConnection(server.address)
+      val serverConn = server.acceptOne()
+      val clientConn = connAttempt.finishConnect()
+
+      clientConn.writeLn("Foo")
+      serverConn.expectReceivedString("Foo\n")
+
+      serverConn.writeLn("bar1")
+      serverConn.writeLn("bar2")
+      serverConn.writeLn("bar3")
+      clientConn.expectReceivedString("bar1\n")
+      clientConn.expectReceivedString("bar2\n")
+      clientConn.expectReceivedString("bar3\n")
+
+      clientConn.command(Tcp.Close)
+      serverConn.events.expectMsg(Tcp.PeerClosed)
+      TestUtils.verifyActorTermination(serverConn.handler)
+      clientConn.events.expectMsg(Tcp.Closed)
+      TestUtils.verifyActorTermination(clientConn.handler)
+      server.close()
+    }
   }
 
   step { system.shutdown() }
