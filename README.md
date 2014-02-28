@@ -3,6 +3,9 @@ spray-websocket
 
 WebSocket for spray-can
 
+* Support java.util.zip based per-frame-deflate
+* Pass all autobahn test cases (both ws and wss)
+
 Example:
 
 

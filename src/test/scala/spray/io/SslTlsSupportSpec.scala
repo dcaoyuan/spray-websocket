@@ -344,8 +344,8 @@ class SslTlsSupportSpec extends Specification with NoTimeConversions {
       def writeLn(msg: String) = command(Tcp.Write(ByteString(msg + '\n')))
     }
     class SimpleSpraySslClientConnection(connected: Tcp.Connected, val connection: ActorRef)
-        extends SslConnection
-        with SpraySslClientConnection {
+      extends SslConnection
+      with SpraySslClientConnection {
       lazy val handler = system.actorOf(Props(new ConnectionActor[ClientSSLEngineProvider](events.ref, connection, connected)),
         "client" + counter.incrementAndGet())
     }
