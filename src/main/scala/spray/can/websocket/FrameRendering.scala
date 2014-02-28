@@ -11,6 +11,7 @@ object FrameRendering {
   def apply(maskingKeyGen: Option[() => Array[Byte]], wsContext: HandshakeContext) = new PipelineStage {
     def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines with DynamicCommandPipeline {
       def maskingKey = maskingKeyGen.fold(Array.empty[Byte])(_())
+
       def initialCommandPipeline: CPL = {
         case FrameCommand(frame) =>
           val frame1 = frame match {
@@ -24,12 +25,14 @@ object FrameRendering {
               } getOrElse (frame)
             case _ => frame
           }
-          val closed = frame1.opcode == Opcode.Close
-          if (closed) {
-            commandPipeline.become(closingOurSide)
+
+          context.log.debug("Writing frame {}", frame1.opcode)
+          val isClose = frame1.opcode == Opcode.Close
+          if (isClose) {
+            commandPipeline.become(waitingForClosing)
           }
           commandPL(Tcp.Write(FrameRender.render(frame1, maskingKey)))
-          if (closed) {
+          if (isClose) {
             commandPL(Tcp.Close)
           }
 
@@ -40,8 +43,8 @@ object FrameRendering {
         case cmd => commandPL(cmd)
       }
 
-      def closingOurSide: CPL = {
-        case _ =>
+      def waitingForClosing: CPL = {
+        case _ => // stop process any commands
       }
 
       val eventPipeline = eventPL

@@ -14,7 +14,7 @@ import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
 import spray.can.websocket.{ FrameStreamCommand, FrameCommand, FrameInEvent }
-import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame }
+import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame, Opcode }
 import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -60,9 +60,10 @@ object WebSocketFrontend {
       val commandPipeline = commandPL
 
       val eventPipeline: EPL = {
-        case FrameInEvent(frame: CloseFrame)       => commandPL(FrameCommand(frame))
+        case FrameInEvent(frame: PingFrame)        => commandPL(FrameCommand(frame.copy(opcode = Opcode.Pong))) // auto bounce a pong frame
+        case FrameInEvent(frame: CloseFrame)       => commandPL(FrameCommand(frame)) // auto bounce a close frame
         case FrameInEvent(_: ContinuationFrame)    => // We should have composed it during lower stage. Anyway, does not need to tell handler
-        case FrameInEvent(_: PingFrame)            => // will be auto processed by AutoPong stage
+
         case FrameInEvent(frame)                   => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
         case ev: UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))

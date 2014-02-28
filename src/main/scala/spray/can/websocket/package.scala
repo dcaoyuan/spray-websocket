@@ -43,7 +43,6 @@ package object websocket {
                     maskGen: Option[() => Array[Byte]] = None) = (settings: ServerSettings) => {
 
     WebSocketFrontend(settings, serverHandler) >>
-      AutoPong >>
       FrameComposing(wsFrameSizeLimit, wsContext) >>
       FrameParsing(wsFrameSizeLimit) >>
       FrameRendering(maskGen, wsContext)
@@ -57,7 +56,6 @@ package object websocket {
 
   def clientPipelineStage(clientHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = Option(defaultMaskGen)) = (settings: ClientConnectionSettings) => (state: HandshakeContext) => {
     WebSocketFrontend(settings, clientHandler) >>
-      AutoPong >>
       FrameComposing(websocketFrameSizeLimit, state) >>
       FrameParsing(websocketFrameSizeLimit) >>
       FrameRendering(maskGen, state)
