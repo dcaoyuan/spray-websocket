@@ -44,7 +44,9 @@ object FrameRendering {
       }
 
       def waitingForClosing: CPL = {
-        case _ => // stop process any commands
+        // stop process any commands except tell the handler 'ConnectionClosed'
+        case cmd@Pipeline.Tell(_, _: Tcp.ConnectionClosed, _) => commandPL(cmd)
+        case _ =>
       }
 
       val eventPipeline = eventPL
