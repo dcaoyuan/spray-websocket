@@ -19,7 +19,7 @@ object SimpleClient extends App with MySslConfiguration {
         connection = sender
         connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), Option(req))
 
-      case UHttp.Upgraded =>
+      case UHttp.Upgraded(wsContext) =>
         connection = sender
         context.become(upgraded)
     }

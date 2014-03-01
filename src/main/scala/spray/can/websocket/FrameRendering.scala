@@ -4,7 +4,11 @@ import akka.io.Tcp
 import spray.can.websocket.frame.DataFrame
 import spray.can.websocket.frame.FrameRender
 import spray.can.websocket.frame.Opcode
-import spray.io._
+import spray.io.DynamicCommandPipeline
+import spray.io.Pipeline
+import spray.io.PipelineContext
+import spray.io.Pipelines
+import spray.io.PipelineStage
 
 object FrameRendering {
 
@@ -44,7 +48,9 @@ object FrameRendering {
       }
 
       def waitingForClosing: CPL = {
-        case _ => // stop process any commands
+        // stop process any commands except tell the handler 'ConnectionClosed'
+        case cmd @ Pipeline.Tell(_, _: Tcp.ConnectionClosed, _) => commandPL(cmd)
+        case _ =>
       }
 
       val eventPipeline = eventPL

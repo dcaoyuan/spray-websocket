@@ -4,7 +4,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import akka.actor._
 import spray.can.websocket.examples.MySslConfiguration
 import spray.can.{websocket, Http}
-import spray.can.server.UHttp
+import spray.can.server.{ServerSettings, UHttp}
 import spray.can.websocket.frame._
 import spray.http._
 import akka.io.{IO, Tcp}
@@ -17,6 +17,8 @@ import akka.testkit.TestProbe
 import spray.http.HttpRequest
 import spray.can.websocket.frame.Send
 import java.io.ByteArrayInputStream
+import com.typesafe.config.{ConfigFactory, Config}
+import spray.can.client.ClientConnectionSettings
 
 /**
  *
@@ -24,7 +26,12 @@ import java.io.ByteArrayInputStream
  * WANDOU LABS PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
  */
 class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MySslConfiguration {
-  implicit val system = ActorSystem()
+  val testConf: Config = ConfigFactory.parseString("""
+    akka {
+      loglevel = WARNING
+    }""")
+
+  implicit val system = ActorSystem("UHttpTestSystem", testConf)
   implicit val timeout = akka.util.Timeout(5 seconds)
   import system.dispatcher
 
@@ -103,90 +110,94 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
   }
 
-  def setupConnection(port: Int, req: HttpRequest): ActorRef = {
+  def setupConnection(port: Int, req: HttpRequest, ssl: Boolean): ActorRef = {
     val server = system.actorOf(Props(new WebSocketServer))
     val client = system.actorOf(Props(new WebsocketClient(req)))
 
-    IO(UHttp).tell(Http.Bind(server, "localhost", 8080), server)
+    IO(UHttp).tell(Http.Bind(server, "localhost", port, settings = Some(ServerSettings(system).copy(sslEncryption = ssl))), server)
     Thread.sleep(100)
-    IO(UHttp).tell(Http.Connect("localhost", 8080), client)
+    IO(UHttp).tell(Http.Connect("localhost", port, sslEncryption = ssl, settings = Some(ClientConnectionSettings(system))), client)
 
     eventually {
       assert(Await.result(client ? "upgraded?", 1 seconds) == true)
     }(PatienceConfig(timeout = Duration.Inf))
+
     client
   }
 
+  def randomPort() = 1000 + util.Random.nextInt(10000)
+
+  def runTest(req: HttpRequest)(test: ActorRef => Unit) {
+    test(setupConnection(randomPort(), req, ssl = false))
+    test(setupConnection(randomPort(), req, ssl = true))
+  }
+
   test("handshake") {
-    val port = 8080
     val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Host("localhost", port),
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
       HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
     ))
-    val client = setupConnection(port, req)
 
-    val probe = TestProbe()
-    probe.send(client, Send(TextFrame(ByteString("123"))))
-    probe.expectMsg(TextFrame(ByteString("123")))
-    probe.send(client, Send(CloseFrame()))
-
+    runTest(req) {
+      client =>
+        val probe = TestProbe()
+        probe.send(client, Send(TextFrame(ByteString("123"))))
+        probe.expectMsg(TextFrame(ByteString("123")))
+        probe.send(client, Send(CloseFrame()))
+    }
   }
 
   test("handshake with permessage-deflate") {
-    val port = 8081
     val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Host("localhost", port),
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
       HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw=="),
       HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate")
     ))
-    val client = setupConnection(port, req)
 
-    val probe = TestProbe()
-    probe.send(client, Send(TextFrame(ByteString("123"))))
-    probe.expectMsg(TextFrame(ByteString("123")))
-    probe.send(client, Send(CloseFrame()))
+    runTest(req) {
+      client =>
+        val probe = TestProbe()
+        probe.send(client, Send(TextFrame(ByteString("123"))))
+        probe.expectMsg(TextFrame(ByteString("123")))
+        probe.send(client, Send(CloseFrame()))
+    }
   }
 
   test("ping pong") {
-    val port = 8082
     val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Host("localhost", port),
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
       HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
     ))
-    val client = setupConnection(port, req)
 
-    val probe = TestProbe()
-    
-    probe.send(client, Send(PingFrame()))
-    probe.expectMsg(PongFrame())
-    probe.send(client, Send(CloseFrame()))
+    runTest(req) {
+      client =>
+        val probe = TestProbe()
+        probe.send(client, Send(PingFrame()))
+        probe.expectMsg(PongFrame())
+        probe.send(client, Send(CloseFrame()))
+    }
   }
 
   test("Frame Stream") {
-    val port = 8083
     val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Host("localhost", port),
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
       HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
     ))
-    val client = setupConnection(port, req)
 
-    val probe = TestProbe()
-    val frame = TextFrameStream(1, new ByteArrayInputStream("a very very long string".getBytes("UTF-8")))
-
-    probe.send(client, SendStream(frame))
-    probe.expectMsg(TextFrame(ByteString("a very very long string")))
-
+    runTest(req) {
+      client =>
+        val probe = TestProbe()
+        val frame = TextFrameStream(1, new ByteArrayInputStream("a very very long string".getBytes("UTF-8")))
+        probe.send(client, SendStream(frame))
+        probe.expectMsg(TextFrame(ByteString("a very very long string")))
+    }
   }
 }
