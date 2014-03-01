@@ -31,8 +31,14 @@ object SimpleClient extends App with MySslConfiguration {
 
       case f: Frame =>
         onMessage(f)
+
       case Tcp.Closed =>
         onClose()
+        context.become(closed)
+    }
+
+    def closed: Receive = {
+      case e => log.debug("Receive {} after closed.", e)
     }
   }
 
@@ -40,7 +46,8 @@ object SimpleClient extends App with MySslConfiguration {
 
   import system.dispatcher
 
-  val agent = "spray-websocket-client"
+  val ssl = false
+  val agent = "spray-websocket-client" + (if (ssl) "-ssl" else "-basic")
   val host = "127.0.0.1"
   val port = 9001
   val headers = List(
@@ -54,7 +61,7 @@ object SimpleClient extends App with MySslConfiguration {
   var caseCount = 0
 
   val getCaseCount = HttpRequest(HttpMethods.GET, "/getCaseCount", headers)
-  IO(UHttp).tell(Http.Connect(host, port), system.actorOf(Props(new WebsocketClient(getCaseCount, onMessage = frame => {
+  IO(UHttp).tell(Http.Connect(host, port, ssl), system.actorOf(Props(new WebsocketClient(getCaseCount, onMessage = frame => {
     caseCount = frame.payload.utf8String.toInt
     println("case count: " + caseCount)
   }, onClose = () => {
@@ -77,7 +84,7 @@ object SimpleClient extends App with MySslConfiguration {
         runNextCase(i + 1)
       }
     })), "client" + i)
-    IO(UHttp).tell(Http.Connect(host, port), client)
+    IO(UHttp).tell(Http.Connect(host, port, ssl), client)
   }
 
   def updateReport() {
@@ -86,7 +93,7 @@ object SimpleClient extends App with MySslConfiguration {
     }, onClose = () => {
       println("Test suite finished!")
     })))
-    IO(UHttp).tell(Http.Connect(host, port), client)
+    IO(UHttp).tell(Http.Connect(host, port, ssl), client)
   }
 
   readLine("Hit ENTER to exit ...\n")
