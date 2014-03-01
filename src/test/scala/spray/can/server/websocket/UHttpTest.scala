@@ -19,6 +19,7 @@ import spray.can.websocket.frame.Send
 import java.io.ByteArrayInputStream
 import com.typesafe.config.{ConfigFactory, Config}
 import spray.can.client.ClientConnectionSettings
+import scala.language.postfixOps
 
 /**
  *
