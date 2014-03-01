@@ -5,19 +5,28 @@ import akka.actor.ExtendedActorSystem
 import akka.actor.ExtensionKey
 import akka.actor.Props
 import akka.io.Tcp
+import akka.util.{ ByteString, CompactByteString }
+import scala.annotation.tailrec
 import spray.can.Http
 import spray.can.HttpExt
 import spray.can.HttpManager
-import spray.http._
-import spray.io._
 import spray.can.client.{ UpgradableHttpClientSettingsGroup, ClientConnectionSettings }
+import spray.can.parsing.Parser
+import spray.can.parsing.HttpResponsePartParser
+import spray.can.parsing.Result
 import spray.can.websocket.{ HandshakeResponseEvent, HandshakeContext, HandshakeResponse }
-import akka.util.{ ByteString, CompactByteString }
-import scala.annotation.tailrec
-import spray.can.parsing._
+import spray.http.HttpEntity
+import spray.http.HttpEntity
+import spray.http.HttpHeader
 import spray.http.HttpHeaders.{ `Transfer-Encoding`, `Content-Type`, `Content-Length` }
+import spray.http.HttpMethods
 import spray.http.HttpRequest
-import scala.Some
+import spray.io.DynamicPipelines
+import spray.io.PipelineContext
+import spray.io.Pipelines
+import spray.io.PipelineStage
+import spray.io.RawPipelineStage
+import spray.io.SslTlsContext
 
 object UpgradeSupport {
 

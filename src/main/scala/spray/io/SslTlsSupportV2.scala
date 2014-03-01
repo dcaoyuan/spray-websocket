@@ -82,7 +82,7 @@ object SslTlsSupportV2 {
                   sendEncryptedBytes() // might send an empty Tcp.Write, but always triggers a pending ACK
                   become {
                     if (isOutboundDone) finishingClose(closedEvent)
-                    else waitingForAck(remainingOutgoingData, None, closedEvent)
+                    else waitingForAck(remainingOutgoingData, writeWantsAck, closedEvent)
                   }
                 }
               case Tcp.PeerClosed     ⇒ receivedUnexpectedPeerClosed()
