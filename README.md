@@ -4,7 +4,11 @@ spray-websocket
 WebSocket for spray-can
 
 * Support java.util.zip based per-frame-deflate
-* Pass all autobahn test cases (both ws and wss)
+* Pass all Autobahn test cases (both ws and wss)
+   * [Autobahn test reports for server (ws)](http://wandoulabs.github.io/spray-websocket/autobahn-reports/ws/servers/index.html)
+   * [Autobahn test reports for server (wss)](http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/servers/index.html)
+   * [Autobahn test reports for client (ws)](http://wandoulabs.github.io/spray-websocket/autobahn-reports/ws/clients/index.html)
+   * [Autobahn test reports for client (wss)](http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/clients/index.html)
 
 Example:
 
