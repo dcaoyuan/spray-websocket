@@ -5,6 +5,8 @@ import akka.util.ByteString
 object FrameRender {
   import Frame._
 
+  def apply(frame: Frame, maskingKey: Array[Byte] = Array.empty): ByteString = render(frame, maskingKey)
+
   def render(frame: Frame, maskingKey: Array[Byte] = Array.empty): ByteString = {
     import frame._
 

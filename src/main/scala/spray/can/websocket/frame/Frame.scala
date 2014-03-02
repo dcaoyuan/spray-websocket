@@ -171,6 +171,7 @@ final case class BinaryFrameStream(chunkSize: Int, payload: InputStream) extends
  * Text frame
  */
 object TextFrame {
+  def apply(text: String): TextFrame = apply(true, ByteString(text))
   def apply(payload: ByteString): TextFrame = apply(true, payload)
   def apply(fin: Boolean, payload: ByteString): TextFrame = apply(Frame.toFinRsvOp(fin, Opcode.Text), payload)
   def apply(finRsvOp: Byte, payload: ByteString): TextFrame = new TextFrame(finRsvOp, payload)

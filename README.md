@@ -13,7 +13,8 @@ WebSocket for spray-can
 Example:
 
 
-The WebSocketConnection which could be extended to your WebSocketWorker by overriding businessLogic
+The WebSocketConnection which could be extended to your WebSocketWorker by overriding businessLogic.
+Or, just write your own.
 
 ```scala
 
@@ -47,11 +48,11 @@ trait WebSocketConnection extends Actor with ActorLogging {
     case websocket.HandshakeRequest(state) =>
       state match {
         case wsFailure: websocket.HandshakeFailure => sender() ! wsFailure.response
-        case wsContext: websocket.HandshakeContext => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, wsContext), wsContext)
+        case wsContext: websocket.HandshakeContext => sender() ! UHttp.Upgrade(websocket.pipelineStage(self, wsContext), wsContext.response)
       }
 
     // upgraded successfully
-    case UHttp.Upgraded(wsContext) =>
+    case UHttp.Upgraded =>
       log.debug("{} upgraded to WebSocket.", self)
       context.become(businessLogic orElse closeLogic)
   }
