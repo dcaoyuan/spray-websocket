@@ -88,9 +88,9 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       case x: Http.Connected =>
         log.info("Client Connected: " + sender())
         connection = sender()
-        connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), Option(req))
+        connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), req)
 
-      case UHttp.Upgraded(wsContext) =>
+      case UHttp.Upgraded =>
         log.info("Client Upgraded!")
         connection = sender()
         context.become(upgraded)

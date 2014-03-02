@@ -65,7 +65,7 @@ object WebSocketFrontend {
 
         case FrameInEvent(frame)                   => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
-        case ev: UHttp.Upgraded                    => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case ev @ UHttp.Upgraded                   => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case ev: Tcp.ConnectionClosed              => commandPL(Pipeline.Tell(handler, ev, receiverRef))
         case Http.MessageEvent(resp: HttpResponse) => commandPL(Pipeline.Tell(handler, resp, receiverRef))
 
@@ -81,7 +81,7 @@ object WebSocketFrontend {
         def receive = {
           case x: Frame       => actorContext.self ! FrameCommand(x)
           case x: FrameStream => actorContext.self ! FrameStreamCommand(x)
-          case Tcp.Close      => actorContext.self ! Tcp.Close
+          case x @ Tcp.Close  => actorContext.self ! x
         }
       }
 

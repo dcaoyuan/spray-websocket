@@ -32,11 +32,9 @@ package object websocket {
    * Wraps a frame in a Command going down through the command pipeline
    */
   final case class FrameCommand(frame: Frame) extends Tcp.Command
-
   final case class FrameStreamCommand(frame: FrameStream) extends Tcp.Command
 
   final case class Send(frame: Frame)
-
   final case class SendStream(frame: FrameStream)
 
   /**
@@ -45,7 +43,8 @@ package object websocket {
    * TODO websocketFrameSizeLimit as setting option?
    * TODO isAutoPongEnabled as setting options?
    */
-  def pipelineStage(serverHandler: ActorRef, wsContext: HandshakeContext,
+  def pipelineStage(serverHandler: ActorRef,
+                    wsContext: HandshakeContext,
                     wsFrameSizeLimit: Int = Int.MaxValue,
                     maskGen: Option[() => Array[Byte]] = None) = (settings: ServerSettings) => {
 
@@ -61,11 +60,14 @@ package object websocket {
     mask
   }
 
-  def clientPipelineStage(clientHandler: ActorRef, isAutoPongEnabled: Boolean = true, websocketFrameSizeLimit: Int = Int.MaxValue, maskGen: Option[() => Array[Byte]] = Option(defaultMaskGen)) = (settings: ClientConnectionSettings) => (state: HandshakeContext) => {
+  def clientPipelineStage(clientHandler: ActorRef,
+                          wsFrameSizeLimit: Int = Int.MaxValue,
+                          maskGen: Option[() => Array[Byte]] = Some(defaultMaskGen)) = (settings: ClientConnectionSettings) => (wsContext: HandshakeContext) => {
+
     WebSocketFrontend(settings, clientHandler) >>
-      FrameComposing(websocketFrameSizeLimit, state) >>
-      FrameParsing(websocketFrameSizeLimit) >>
-      FrameRendering(maskGen, state)
+      FrameComposing(wsFrameSizeLimit, wsContext) >>
+      FrameParsing(wsFrameSizeLimit) >>
+      FrameRendering(maskGen, wsContext)
   }
 
   sealed trait Handshake {

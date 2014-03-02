@@ -20,6 +20,7 @@ import spray.http.HttpHeader
 import spray.http.HttpHeaders.{ `Transfer-Encoding`, `Content-Type`, `Content-Length` }
 import spray.http.HttpMethods
 import spray.http.HttpRequest
+import spray.http.HttpResponse
 import spray.io.DynamicPipelines
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -38,12 +39,12 @@ object UpgradeSupport {
         val cpl = defaultPipelines.commandPipeline
 
         val commandPipeline: CPL = {
-          case UHttp.Upgrade(pipelineStage, state) ⇒
-            cpl(Http.MessageCommand(state.response))
+          case UHttp.Upgrade(pipelineStage, response) ⇒
+            cpl(Http.MessageCommand(response))
             val upgradedPipelines = upgradedState(pipelineStage(settings)(context, commandPL, eventPL))
             become(upgradedPipelines)
 
-            upgradedPipelines.eventPipeline(UHttp.Upgraded(state))
+            upgradedPipelines.eventPipeline(UHttp.Upgraded)
 
           case cmd => cpl(cmd)
         }
@@ -73,8 +74,8 @@ object UpgradeSupport {
         val cpl = defaultPipelines.commandPipeline
 
         val commandPipeline: CPL = {
-          case UHttp.UpgradeClient(pipelineStage, req) =>
-            req foreach { x => cpl(Http.MessageCommand(x)) }
+          case UHttp.UpgradeClient(pipelineStage, request) =>
+            cpl(Http.MessageCommand(request))
             become(upgradingState(defaultPipelines, pipelineStage(settings)))
 
           case cmd ⇒ cpl(cmd)
@@ -110,7 +111,7 @@ object UpgradeSupport {
         }
 
         val commandPipeline: CPL = {
-          case cmd ⇒ defaultPipelines.commandPipeline(cmd)
+          case cmd => defaultPipelines.commandPipeline(cmd)
         }
 
         val eventPipeline: EPL = {
@@ -118,7 +119,7 @@ object UpgradeSupport {
           case HandshakeResponseEvent(HandshakeResponse(state), data) => {
             val pipelines = upgradedState(upgradedPipelines(state)(context, commandPL, eventPL))
             become(pipelines)
-            pipelines.eventPipeline(UHttp.Upgraded(state))
+            pipelines.eventPipeline(UHttp.Upgraded)
             pipelines.eventPipeline(Tcp.Received(data))
           }
           case ev => defaultPipelines.eventPipeline(ev)
@@ -151,9 +152,9 @@ object UpgradeSupport {
  */
 object UHttp extends ExtensionKey[UHttpExt] {
   // upgrades -- clould be in spray.can.Http, since Upgrade is part of HTTP spec.
-  case class Upgrade(pipelineStage: ServerSettings ⇒ RawPipelineStage[SslTlsContext], wsContext: HandshakeContext) extends Tcp.Command
-  case class UpgradeClient(pipelineStage: ClientConnectionSettings => HandshakeContext => RawPipelineStage[PipelineContext], req: Option[HttpRequest]) extends Tcp.Command
-  case class Upgraded(state: HandshakeContext) extends Tcp.Event
+  case class Upgrade(pipelineStage: ServerSettings ⇒ RawPipelineStage[SslTlsContext], response: HttpResponse) extends Tcp.Command
+  case class UpgradeClient(pipelineStage: ClientConnectionSettings => HandshakeContext => RawPipelineStage[PipelineContext], request: HttpRequest) extends Tcp.Command
+  case object Upgraded extends Tcp.Event
 }
 
 class UHttpExt(system: ExtendedActorSystem) extends HttpExt(system) {
