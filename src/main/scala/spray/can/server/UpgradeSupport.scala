@@ -16,7 +16,6 @@ import spray.can.parsing.HttpResponsePartParser
 import spray.can.parsing.Result
 import spray.can.websocket.{ HandshakeResponseEvent, HandshakeContext, HandshakeResponse }
 import spray.http.HttpEntity
-import spray.http.HttpEntity
 import spray.http.HttpHeader
 import spray.http.HttpHeaders.{ `Transfer-Encoding`, `Content-Type`, `Content-Length` }
 import spray.http.HttpMethods
@@ -57,8 +56,8 @@ object UpgradeSupport {
         val epl = pipelines.eventPipeline
 
         val eventPipeline: EPL = {
-          case ev: AckEventWithReceiver ⇒ // rounding-up works, just drop it
-          case ev                       ⇒ epl(ev)
+          case ev: AckEventWithReceiver => // rounding-up works, just drop it
+          case ev                       => epl(ev)
         }
       }
 
@@ -72,17 +71,16 @@ object UpgradeSupport {
       def defaultState = new State {
         val defaultPipelines = defaultStage(context, commandPL, eventPL)
         val cpl = defaultPipelines.commandPipeline
-        val epl = defaultPipelines.eventPipeline
 
         val commandPipeline: CPL = {
-          case UHttp.UpgradeClient(pipelineStage, req) ⇒
+          case UHttp.UpgradeClient(pipelineStage, req) =>
             req foreach { x => cpl(Http.MessageCommand(x)) }
             become(upgradingState(defaultPipelines, pipelineStage(settings)))
 
           case cmd ⇒ cpl(cmd)
         }
 
-        val eventPipeline = epl
+        val eventPipeline = defaultPipelines.eventPipeline
       }
 
       def upgradingState(defaultPipelines: Pipelines, upgradedPipelines: HandshakeContext => PipelineStage) = new State {
@@ -123,7 +121,7 @@ object UpgradeSupport {
             pipelines.eventPipeline(UHttp.Upgraded(state))
             pipelines.eventPipeline(Tcp.Received(data))
           }
-          case event => defaultPipelines.eventPipeline(event)
+          case ev => defaultPipelines.eventPipeline(ev)
         }
       }
 
@@ -132,8 +130,8 @@ object UpgradeSupport {
         val epl = pipelines.eventPipeline
 
         val eventPipeline: EPL = {
-          case ev: AckEventWithReceiver ⇒ // rounding-up works, just drop it
-          case ev                       ⇒ epl(ev)
+          case ev: AckEventWithReceiver => // rounding-up works, just drop it
+          case ev                       => epl(ev)
         }
       }
     }

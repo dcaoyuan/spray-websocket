@@ -1,32 +1,38 @@
 package spray.can.websocket.examples
 
-import akka.actor._
-import spray.can.{websocket, Http}
+import akka.actor.Actor
+import akka.actor.ActorLogging
+import akka.actor.ActorRef
+import akka.actor.ActorSystem
+import akka.actor.Props
+import akka.io.{ Tcp, IO }
+import spray.can.Http
 import spray.can.server.UHttp
-import spray.can.websocket.frame._
-import spray.http.{HttpHeaders, HttpMethods, HttpRequest}
-import akka.io.{Tcp, IO}
-import spray.can.websocket.frame.Send
+import spray.can.websocket
+import spray.can.websocket.Send
+import spray.can.websocket.frame.Frame
+import spray.can.websocket.frame.PongFrame
+import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
 
 object SimpleClient extends App with MySslConfiguration {
 
-  class WebsocketClient(req: HttpRequest, onMessage: Frame => Unit, onClose: () => Unit) extends Actor with ActorLogging {
+  class WebSocketClient(req: HttpRequest, onMessage: Frame => Unit, onClose: () => Unit) extends Actor with ActorLogging {
     var connection: ActorRef = null
     var commander: ActorRef = null
 
     def receive = {
       case x: Http.Connected =>
-        connection = sender
+        connection = sender()
         connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), Option(req))
 
       case UHttp.Upgraded(wsContext) =>
-        connection = sender
+        connection = sender()
         context.become(upgraded)
     }
 
     def upgraded: Receive = {
       case Send(frame) =>
-        commander = sender
+        commander = sender()
         connection ! frame
 
       case f: Frame =>
@@ -61,7 +67,8 @@ object SimpleClient extends App with MySslConfiguration {
   var caseCount = 0
 
   val getCaseCount = HttpRequest(HttpMethods.GET, "/getCaseCount", headers)
-  IO(UHttp).tell(Http.Connect(host, port, ssl), system.actorOf(Props(new WebsocketClient(getCaseCount, onMessage = frame => {
+
+  IO(UHttp).tell(Http.Connect(host, port, ssl), system.actorOf(Props(new WebSocketClient(getCaseCount, onMessage = frame => {
     caseCount = frame.payload.utf8String.toInt
     println("case count: " + caseCount)
   }, onClose = () => {
@@ -72,10 +79,10 @@ object SimpleClient extends App with MySslConfiguration {
     println("run case: " + i)
     val req = HttpRequest(HttpMethods.GET, "/runCase?case=" + i + "&agent=" + agent, headers)
     var client = Actor.noSender
-    client = system.actorOf(Props(new WebsocketClient(req, onMessage = frame => {
+    client = system.actorOf(Props(new WebSocketClient(req, onMessage = frame => {
       frame match {
         case _: PongFrame =>
-        case _ => client ! Send(frame)
+        case _            => client ! Send(frame)
       }
     }, onClose = () => {
       if (i == caseCount) {
@@ -89,7 +96,7 @@ object SimpleClient extends App with MySslConfiguration {
 
   def updateReport() {
     val req = HttpRequest(HttpMethods.GET, "/updateReports?agent=" + agent, headers)
-    val client: ActorRef = system.actorOf(Props(new WebsocketClient(req, onMessage = frame => {
+    val client: ActorRef = system.actorOf(Props(new WebSocketClient(req, onMessage = frame => {
     }, onClose = () => {
       println("Test suite finished!")
     })))

@@ -35,6 +35,10 @@ package object websocket {
 
   final case class FrameStreamCommand(frame: FrameStream) extends Tcp.Command
 
+  final case class Send(frame: Frame)
+
+  final case class SendStream(frame: FrameStream)
+
   /**
    * pipeline stage of websocket
    *

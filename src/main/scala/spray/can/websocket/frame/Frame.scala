@@ -246,7 +246,3 @@ object PongFrame {
 }
 
 final class PongFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
-
-case class Send(f: Frame)
-
-case class SendStream(f: FrameStream)

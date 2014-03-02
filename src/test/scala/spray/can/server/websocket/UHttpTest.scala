@@ -1,31 +1,38 @@
 package spray.can.server.websocket
 
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
-import akka.actor._
-import spray.can.websocket.examples.MySslConfiguration
-import spray.can.{websocket, Http}
-import spray.can.server.{ServerSettings, UHttp}
-import spray.can.websocket.frame._
-import spray.http._
-import akka.io.{IO, Tcp}
-import scala.concurrent.Await
-import org.scalatest.concurrent.Eventually
+import akka.actor.Actor
+import akka.actor.ActorLogging
+import akka.actor.ActorRef
+import akka.actor.ActorSystem
+import akka.actor.Props
+import akka.io.{ IO, Tcp }
 import akka.pattern._
-import scala.concurrent.duration._
-import akka.util.ByteString
 import akka.testkit.TestProbe
-import spray.http.HttpRequest
-import spray.can.websocket.frame.Send
+import akka.util.ByteString
+import com.typesafe.config.{ ConfigFactory, Config }
 import java.io.ByteArrayInputStream
-import com.typesafe.config.{ConfigFactory, Config}
+import org.scalatest.{ BeforeAndAfterAll, FunSuite }
+import org.scalatest.concurrent.Eventually
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import spray.can.Http
 import spray.can.client.ClientConnectionSettings
-import scala.language.postfixOps
+import spray.can.server.{ ServerSettings, UHttp }
+import spray.can.websocket
+import spray.can.websocket.Send
+import spray.can.websocket.SendStream
+import spray.can.websocket.examples.MySslConfiguration
+import spray.can.websocket.frame.BinaryFrame
+import spray.can.websocket.frame.CloseFrame
+import spray.can.websocket.frame.Frame
+import spray.can.websocket.frame.PingFrame
+import spray.can.websocket.frame.PongFrame
+import spray.can.websocket.frame.TextFrame
+import spray.can.websocket.frame.TextFrameStream
+import spray.http.HttpHeaders
+import spray.http.HttpMethods
+import spray.http.HttpRequest
 
-/**
- *
- * Copyright (c) 2011, Wandou Labs and/or its affiliates. All rights reserved.
- * WANDOU LABS PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- */
 class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MySslConfiguration {
   val testConf: Config = ConfigFactory.parseString("""
     akka {
@@ -33,7 +40,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     }""")
 
   implicit val system = ActorSystem("UHttpTestSystem", testConf)
-  implicit val timeout = akka.util.Timeout(5 seconds)
+  implicit val timeout = akka.util.Timeout(5.seconds)
   import system.dispatcher
 
   override def afterAll: Unit = system.shutdown()
@@ -45,8 +52,6 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
         val serverConnection = sender()
         val conn = context.actorOf(Props(new WebSocketWorker(serverConnection)))
         serverConnection ! Http.Register(conn)
-      case PingFrame(payload) =>
-        sender() ! PongFrame(payload)
     }
   }
 
@@ -54,15 +59,15 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     def businessLogic: Receive = {
       case x: BinaryFrame =>
         log.info("Server BinaryFrame Received:" + x)
-        sender ! x
+        sender() ! x
 
       case x: TextFrame =>
         if (x.payload.length <= 5) {
           log.info("Server TextFrame Received:" + x)
-          sender ! x
+          sender() ! x
         } else {
           log.info("Server Large TextFrame Received:" + x)
-          sender ! TextFrameStream(5, new ByteArrayInputStream(x.payload.toArray))
+          sender() ! TextFrameStream(5, new ByteArrayInputStream(x.payload.toArray))
         }
 
       case x: HttpRequest => // do something
@@ -81,32 +86,32 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
     def receive = {
       case x: Http.Connected =>
-        log.info("Client Connected: " + sender)
-        connection = sender
+        log.info("Client Connected: " + sender())
+        connection = sender()
         connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), Option(req))
 
       case UHttp.Upgraded(wsContext) =>
         log.info("Client Upgraded!")
-        connection = sender
+        connection = sender()
         context.become(upgraded)
     }
 
     def upgraded: Receive = {
       case Send(frame) =>
         log.info("Client Frame Send")
-        commander = sender
+        commander = sender()
         connection ! frame
 
       case SendStream(frame) =>
         log.info("Client FrameStream Send")
-        commander = sender
+        commander = sender()
         connection ! frame
 
       case f: Frame =>
         log.info("Client Frame Received:" + f)
         commander ! f
 
-      case "upgraded?" => sender ! true
+      case "upgraded?" => sender() ! true
     }
 
   }
@@ -120,7 +125,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     IO(UHttp).tell(Http.Connect("localhost", port, sslEncryption = ssl, settings = Some(ClientConnectionSettings(system))), client)
 
     eventually {
-      assert(Await.result(client ? "upgraded?", 1 seconds) == true)
+      assert(Await.result(client ? "upgraded?", 1.seconds) == true)
     }(PatienceConfig(timeout = Duration.Inf))
 
     client
@@ -138,15 +143,13 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
-    ))
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
 
-    runTest(req) {
-      client =>
-        val probe = TestProbe()
-        probe.send(client, Send(TextFrame(ByteString("123"))))
-        probe.expectMsg(TextFrame(ByteString("123")))
-        probe.send(client, Send(CloseFrame()))
+    runTest(req) { client =>
+      val probe = TestProbe()
+      probe.send(client, Send(TextFrame(ByteString("123"))))
+      probe.expectMsg(TextFrame(ByteString("123")))
+      probe.send(client, Send(CloseFrame()))
     }
   }
 
@@ -156,15 +159,13 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
       HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw=="),
-      HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate")
-    ))
+      HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate")))
 
-    runTest(req) {
-      client =>
-        val probe = TestProbe()
-        probe.send(client, Send(TextFrame(ByteString("123"))))
-        probe.expectMsg(TextFrame(ByteString("123")))
-        probe.send(client, Send(CloseFrame()))
+    runTest(req) { client =>
+      val probe = TestProbe()
+      probe.send(client, Send(TextFrame(ByteString("123"))))
+      probe.expectMsg(TextFrame(ByteString("123")))
+      probe.send(client, Send(CloseFrame()))
     }
   }
 
@@ -173,15 +174,13 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
-    ))
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
 
-    runTest(req) {
-      client =>
-        val probe = TestProbe()
-        probe.send(client, Send(PingFrame()))
-        probe.expectMsg(PongFrame())
-        probe.send(client, Send(CloseFrame()))
+    runTest(req) { client =>
+      val probe = TestProbe()
+      probe.send(client, Send(PingFrame()))
+      probe.expectMsg(PongFrame())
+      probe.send(client, Send(CloseFrame()))
     }
   }
 
@@ -190,15 +189,13 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       HttpHeaders.Connection("Upgrade"),
       HttpHeaders.RawHeader("Upgrade", "websocket"),
       HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")
-    ))
+      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
 
-    runTest(req) {
-      client =>
-        val probe = TestProbe()
-        val frame = TextFrameStream(1, new ByteArrayInputStream("a very very long string".getBytes("UTF-8")))
-        probe.send(client, SendStream(frame))
-        probe.expectMsg(TextFrame(ByteString("a very very long string")))
+    runTest(req) { client =>
+      val probe = TestProbe()
+      val frame = TextFrameStream(1, new ByteArrayInputStream("a very very long string".getBytes("UTF-8")))
+      probe.send(client, SendStream(frame))
+      probe.expectMsg(TextFrame(ByteString("a very very long string")))
     }
   }
 }
