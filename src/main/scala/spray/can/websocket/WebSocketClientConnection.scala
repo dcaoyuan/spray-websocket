@@ -6,12 +6,13 @@ import akka.actor.ActorRef
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
+import spray.http.HttpRequest
 
-trait WebSocketConnection extends Actor with ActorLogging {
-  /**
-   * The HttpServerConnection actor, which holds the pipelines
-   */
-  def serverConnection: ActorRef
+trait WebSocketClientConnection extends Actor with ActorLogging {
+  def upgradeRequest: HttpRequest
+
+  private var _connection: ActorRef = _
+  def connection = _connection
 
   def receive = handshaking orElse closeLogic
 
@@ -22,16 +23,16 @@ trait WebSocketConnection extends Actor with ActorLogging {
   }
 
   def handshaking: Receive = {
+    case _: Http.Connected =>
+      _connection = sender()
+      connection ! UHttp.UpgradeRequest(upgradeRequest)
 
-    // when a client request for upgrading to websocket comes in, we send
-    // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
-    case websocket.HandshakeRequest(state) =>
+    case resp @ websocket.HandshakeResponse(state) =>
       state match {
-        case wsFailure: websocket.HandshakeFailure => sender() ! wsFailure.response
-        case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeServer(websocket.pipelineStage(self, wsContext), wsContext.response)
+        case wsFailure: websocket.HandshakeFailure =>
+        case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeClient(websocket.clientPipelineStage(self, wsContext), resp)
       }
 
-    // upgraded successfully
     case UHttp.Upgraded =>
       log.debug("{} upgraded to WebSocket.", self)
       context.become(businessLogic orElse closeLogic)

@@ -15,14 +15,7 @@ import spray.can.websocket.frame.PongFrame
 import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
 
 /**
- * According to Http spec @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.3
- *
- *   All 1xx (informational), 204 (no content), and 304 (not modified) responses
- *   MUST NOT include a message-body.
- *
- * But Autobahn testsuite try to carry a frame in body of handshake response,
- * which breaks the spec. We need to contact Autobahn team, or make a correct
- * test case for ws client testing.
+ * A simple client for Autobahn test.
  */
 object SimpleClient extends App with MySslConfiguration {
 
