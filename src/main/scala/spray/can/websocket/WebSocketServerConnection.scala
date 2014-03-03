@@ -7,7 +7,7 @@ import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 
-trait WebSocketConnection extends Actor with ActorLogging {
+trait WebSocketServerConnection extends Actor with ActorLogging {
   /**
    * The HttpServerConnection actor, which holds the pipelines
    */
@@ -18,7 +18,7 @@ trait WebSocketConnection extends Actor with ActorLogging {
   def closeLogic: Receive = {
     case ev: Http.ConnectionClosed =>
       context.stop(self)
-      log.debug("Connection closed on event: {}, {} stopped.", ev, self)
+      log.debug("Connection closed on event: {}", ev)
   }
 
   def handshaking: Receive = {
@@ -33,7 +33,6 @@ trait WebSocketConnection extends Actor with ActorLogging {
 
     // upgraded successfully
     case UHttp.Upgraded =>
-      log.debug("{} upgraded to WebSocket.", self)
       context.become(businessLogic orElse closeLogic)
   }
 

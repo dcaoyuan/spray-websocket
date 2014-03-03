@@ -6,10 +6,19 @@ import akka.actor.ExtensionKey
 import akka.actor.Props
 import akka.io.Tcp
 import akka.util.ByteString
+import scala.annotation.tailrec
 import spray.can.Http
 import spray.can.HttpExt
 import spray.can.HttpManager
 import spray.can.client.{ UpgradableHttpClientSettingsGroup, ClientConnectionSettings }
+import spray.can.parsing.HttpResponsePartParser
+import spray.can.parsing.Parser
+import spray.can.parsing.Result
+import spray.http.ErrorInfo
+import spray.http.HttpEntity
+import spray.http.HttpHeader
+import spray.http.HttpHeaders
+import spray.http.HttpMethods
 import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.io.DynamicPipelines
@@ -33,6 +42,7 @@ object UpgradeSupport {
             cpl(Http.MessageCommand(response))
             val upgradedPipelines = upgradedState(pipelineStage(settings)(context, commandPL, eventPL))
             become(upgradedPipelines)
+            context.log.debug("Server upgraded.")
             upgradedPipelines.eventPipeline(UHttp.Upgraded)
 
           case cmd => cpl(cmd)
@@ -58,41 +68,97 @@ object UpgradeSupport {
     def apply(context: C, commandPL: CPL, eventPL: EPL): Pipelines = new DynamicPipelines {
       become(defaultState)
 
-      def defaultState = new State {
+      def defaultState: State = new State {
         val defaultPipelines = defaultStage(context, commandPL, eventPL)
         val cpl = defaultPipelines.commandPipeline
-        val epl = defaultPipelines.eventPipeline
-
-        private var underUpgradeRequest: Boolean = _
-        private var remainingData: Option[ByteString] = None
 
         val commandPipeline: CPL = {
-          case UHttp.UpgradeRequest(request) =>
-            underUpgradeRequest = true
+          case UHttp.UpgradeClient(pipelineStage, request) =>
             cpl(Http.MessageCommand(request))
-
-          case UHttp.UpgradeClient(pipelineStage, response) =>
-            val upgradedPipelines = upgradedState(pipelineStage(settings)(context, commandPL, eventPL))
-            become(upgradedPipelines)
-            upgradedPipelines.eventPipeline(UHttp.Upgraded)
-            remainingData foreach { data =>
-              remainingData = None
-              upgradedPipelines.eventPipeline(Tcp.Received(data))
-            }
+            become(upgradingState(defaultPipelines, pipelineStage))
 
           case cmd => cpl(cmd)
         }
 
-        val eventPipeline: EPL = {
-          case Tcp.Received(data) if underUpgradeRequest =>
-            underUpgradeRequest = false
-            val (httpPart, followedData) = splitHttpPart(data)
-            if (followedData.nonEmpty) {
-              remainingData = Some(followedData)
-            }
-            epl(Tcp.Received(httpPart))
+        val eventPipeline = defaultPipelines.eventPipeline
+      }
 
-          case ev => epl(ev)
+      def upgradingState(defaultPipelines: Pipelines, upgradePipelineStage: HttpResponse => Option[ClientConnectionSettings => RawPipelineStage[PipelineContext]]) = new State {
+
+        case class UpgradeResponseReady(response: HttpResponse, remainingData: ByteString) extends Tcp.Event
+
+        /**
+         * Split non entity allowed http response data to http part and remaining data
+         *
+         * According to Http spec @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.3
+         *
+         *   All 1xx (informational), 204 (no content), and 304 (not modified) responses
+         *   MUST NOT include a message-body.
+         *
+         * But under 101 Switching Protocols, there could be continuated data followed
+         * by http response, which could be treated as data after protocol switched and
+         * should be processed by switched protocol instead of http protocol.
+         *
+         * Anyway, we split the http part as normal http response, and the remaining data
+         * for new protocol processing later.
+         */
+        var remainingData = ByteString.empty
+        var parser: Parser = new HttpResponsePartParser(settings.parserSettings)() {
+          setRequestMethodForNextResponse(HttpMethods.GET)
+
+          override def parseEntity(headers: List[HttpHeader], input: ByteString, bodyStart: Int, clh: Option[HttpHeaders.`Content-Length`],
+                                   cth: Option[HttpHeaders.`Content-Type`], teh: Option[HttpHeaders.`Transfer-Encoding`], hostHeaderPresent: Boolean,
+                                   closeAfterResponseCompletion: Boolean): Result = {
+            remainingData = input.drop(bodyStart)
+            emit(message(headers, HttpEntity.Empty), closeAfterResponseCompletion) { Result.IgnoreAllFurtherInput }
+          }
+        }
+
+        @tailrec
+        def handleParsingResult(result: Result): Unit = result match {
+          case Result.Emit(part, closeAfterResponseCompletion, continue) =>
+            eventPipeline(UpgradeResponseReady(part.asInstanceOf[HttpResponse], remainingData))
+            remainingData = ByteString.empty
+            handleParsingResult(continue())
+
+          case Result.NeedMoreData(next)    => parser = next
+
+          case Result.ParsingError(_, info) => handleError(info)
+
+          case Result.IgnoreAllFurtherInput =>
+
+          case Result.Expect100Continue(continue) =>
+            handleParsingResult(continue())
+        }
+
+        val commandPipeline = defaultPipelines.commandPipeline
+
+        val eventPipeline: EPL = {
+          case Tcp.Received(data) =>
+            handleParsingResult(parser(data))
+
+          case UpgradeResponseReady(response, remainingData) =>
+            // when response was parsed, we should become to upgradedState immediately
+            // so as to receive and process incoming data under new protocal.
+            // @Note the data may keep in coming during shift the state.
+            upgradePipelineStage(response) match {
+              case Some(stage) =>
+                val upgradedPipelines = upgradedState(stage(settings)(context, commandPL, eventPL))
+                become(upgradedPipelines)
+                upgradedPipelines.eventPipeline(UHttp.Upgraded)
+                context.log.debug("Client upgraded.")
+                upgradedPipelines.eventPipeline(Tcp.Received(remainingData))
+
+              case None => become(defaultState)
+            }
+
+          case ev => defaultPipelines.eventPipeline(ev)
+        }
+
+        def handleError(info: ErrorInfo): Unit = {
+          context.log.warning("Received illegal response: {}", info.formatPretty)
+          commandPL(Http.Close)
+          parser = Result.IgnoreAllFurtherInput
         }
       }
 
@@ -104,41 +170,6 @@ object UpgradeSupport {
           case ev: AckEventWithReceiver => // rounding-up works, just drop it
           case ev                       => epl(ev)
         }
-      }
-
-      /**
-       * Split non entity allowed http response data to http part and followed data
-       *
-       * According to Http spec @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.3
-       *
-       *   All 1xx (informational), 204 (no content), and 304 (not modified) responses
-       *   MUST NOT include a message-body.
-       *
-       * But under 101 Switching Protocols, there could be continuated data followed
-       * by http response, which could be treated as data after protocol switched and
-       * should be processed by switched protocol instead of http protocol.
-       *
-       * Anyway, we split the http part as normal http response, and the remaining data
-       * for new protocol processing later.
-       */
-      private def splitHttpPart(input: ByteString): (ByteString, ByteString) = {
-        var i = 0
-        val len = input.length
-        while (i < len) {
-          if (i + 3 < len
-            && input(i) == '\r'
-            && input(i + 1) == '\n'
-            && input(i + 2) == '\r'
-            && input(i + 3) == '\n') {
-            return input.splitAt(i + 4)
-          } else if (i + 1 < len
-            && input(i) == '\n'
-            && input(i + 1) == '\n') {
-            return input.splitAt(i + 2)
-          }
-          i += 1
-        }
-        (input, ByteString.empty)
       }
 
     }
@@ -161,16 +192,15 @@ object UpgradeSupport {
 object UHttp extends ExtensionKey[UHttpExt] {
   /**
    * @param pipelineStage
-   * @paran response  response that should send to client to notify the sucess of upgrading.
+   * @param response  response that should send to client to notify the sucess of upgrading.
    */
   final case class UpgradeServer(pipelineStage: ServerSettings => RawPipelineStage[SslTlsContext], response: HttpResponse) extends Tcp.Command
   /**
    * @param pipelineStage
-   * @paran response  response that have got from server to notify the success of upgrading. (May contain useful data in entity.)
+   * @param response  response that have got from server to notify the success of upgrading. (May contain useful data in entity.)
+   * @param reqeust   upgarde request that will be sent to server
    */
-  final case class UpgradeClient(pipelineStage: ClientConnectionSettings => RawPipelineStage[PipelineContext], response: HttpResponse) extends Tcp.Command
-
-  final case class UpgradeRequest(request: HttpRequest) extends Tcp.Command
+  final case class UpgradeClient(pipelineStage: HttpResponse => Option[ClientConnectionSettings => RawPipelineStage[PipelineContext]], request: HttpRequest) extends Tcp.Command
 
   case object Upgraded extends Tcp.Event
 }

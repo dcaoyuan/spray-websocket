@@ -1,11 +1,10 @@
 package spray.can.websocket.examples
 
 import akka.actor.Actor
-import akka.actor.ActorLogging
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Props
-import akka.io.{ Tcp, IO }
+import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
@@ -19,35 +18,16 @@ import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
  */
 object SimpleClient extends App with MySslConfiguration {
 
-  class WebSocketClient(handshakeRequest: HttpRequest, onMessage: Frame => Unit, onClose: () => Unit) extends Actor with ActorLogging {
-    var connection: ActorRef = null
-    var commander: ActorRef = null
+  class WebSocketClient(val upgradeRequest: HttpRequest, onMessage: Frame => Unit, onClose: () => Unit) extends websocket.WebSocketClientConnection {
 
-    def receive = {
-      case x: Http.Connected =>
-        connection = sender()
-        sender() ! handshakeRequest
-
-      case resp @ websocket.HandshakeResponse(state) =>
-        state match {
-          case wsFailure: websocket.HandshakeFailure =>
-          case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeClient(websocket.clientPipelineStage(self, wsContext), resp)
-        }
-
-      case UHttp.Upgraded =>
-        connection = sender()
-        context.become(upgraded)
-    }
-
-    def upgraded: Receive = {
+    def businessLogic: Receive = {
       case Send(frame) =>
-        commander = sender()
         connection ! frame
 
-      case f: Frame =>
-        onMessage(f)
+      case frame: Frame =>
+        onMessage(frame)
 
-      case Tcp.Closed =>
+      case _: Http.ConnectionClosed =>
         onClose()
         context.become(closed)
     }
@@ -75,40 +55,53 @@ object SimpleClient extends App with MySslConfiguration {
 
   var caseCount = 0
 
-  val getCaseCount = HttpRequest(HttpMethods.GET, "/getCaseCount", headers)
+  val getCaseCountReq = HttpRequest(HttpMethods.GET, "/getCaseCount", headers)
+  val getCaseCountClient = system.actorOf(Props(new WebSocketClient(getCaseCountReq,
+    onMessage = { frame =>
+      caseCount = frame.payload.utf8String.toInt
+      println("case count: " + caseCount)
+    },
 
-  IO(UHttp).tell(Http.Connect(host, port, ssl), system.actorOf(Props(new WebSocketClient(getCaseCount, onMessage = frame => {
-    caseCount = frame.payload.utf8String.toInt
-    println("case count: " + caseCount)
-  }, onClose = () => {
-    runNextCase(1)
-  }))))
+    onClose = { () =>
+      runNextCase(1, caseCount)
+    })))
 
-  def runNextCase(i: Int) {
+  IO(UHttp).tell(Http.Connect(host, port, ssl), getCaseCountClient)
+
+  def runNextCase(i: Int, caseCount: Int) {
     println("run case: " + i)
     val req = HttpRequest(HttpMethods.GET, "/runCase?case=" + i + "&agent=" + agent, headers)
     var client = Actor.noSender
-    client = system.actorOf(Props(new WebSocketClient(req, onMessage = frame => {
-      frame match {
-        case _: PongFrame =>
-        case _            => client ! Send(frame)
-      }
-    }, onClose = () => {
-      if (i == caseCount) {
-        updateReport()
-      } else {
-        runNextCase(i + 1)
-      }
-    })), "client" + i)
+    client = system.actorOf(Props(new WebSocketClient(req,
+      onMessage = { frame =>
+        frame match {
+          case _: PongFrame =>
+          case _ =>
+            println("got: " + frame.opcode)
+            client ! Send(frame)
+        }
+      },
+
+      onClose = { () =>
+        if (i == caseCount) {
+          updateReport()
+        } else {
+          runNextCase(i + 1, caseCount)
+        }
+      })), "client" + i)
+
     IO(UHttp).tell(Http.Connect(host, port, ssl), client)
   }
 
   def updateReport() {
     val req = HttpRequest(HttpMethods.GET, "/updateReports?agent=" + agent, headers)
-    val client: ActorRef = system.actorOf(Props(new WebSocketClient(req, onMessage = frame => {
-    }, onClose = () => {
-      println("Test suite finished!")
-    })))
+    val client: ActorRef = system.actorOf(Props(new WebSocketClient(req,
+      onMessage = { frame => },
+
+      onClose = { () =>
+        println("Test suite finished!")
+      })))
+
     IO(UHttp).tell(Http.Connect(host, port, ssl), client)
   }
 

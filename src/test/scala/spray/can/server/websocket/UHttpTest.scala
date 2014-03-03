@@ -51,22 +51,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     }
   }
 
-  class WebSocketWorker(var serverConnection: ActorRef) extends websocket.WebSocketConnection {
-    override def handshaking: Receive = {
-
-      // when a client request for upgrading to websocket comes in, we send
-      // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
-      case websocket.HandshakeRequest(state) =>
-        state match {
-          case wsFailure: websocket.HandshakeFailure => sender() ! wsFailure.response
-          case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeServer(websocket.pipelineStage(self, wsContext), wsContext.response)
-        }
-
-      // upgraded successfully
-      case UHttp.Upgraded =>
-        log.debug("{} upgraded to WebSocket.", self)
-        context.become(businessLogic orElse closeLogic)
-    }
+  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection {
 
     def businessLogic: Receive = {
       case x: BinaryFrame =>
@@ -92,45 +77,23 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     }
   }
 
-  class WebsocketClient(req: HttpRequest) extends Actor with ActorLogging {
-    var connection: ActorRef = null
+  class WebsocketClient(val upgradeRequest: HttpRequest) extends websocket.WebSocketClientConnection {
     var commander: ActorRef = null
 
-    def receive = {
-      case x: Http.Connected =>
-        log.info("Client Connected: " + sender())
-        connection = sender()
-        sender() ! req
-
-      case resp @ websocket.HandshakeResponse(state) =>
-        state match {
-          case wsFailure: websocket.HandshakeFailure =>
-          case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeClient(websocket.clientPipelineStage(self, wsContext), resp)
-        }
-
-      case UHttp.Upgraded =>
-        log.info("Client Upgraded!")
-        connection = sender()
-        context.become(upgraded)
-
-      case x =>
-        log.info("Got {}", x)
-    }
-
-    def upgraded: Receive = {
+    def businessLogic: Receive = {
       case Send(frame) =>
-        log.info("Client Frame Send")
+        log.info("Client Frame {} send to {}", frame.opcode, connection.path)
         commander = sender()
         connection ! frame
 
       case SendStream(frame) =>
-        log.info("Client FrameStream Send")
+        log.info("Client FrameStream send to {}", connection.path)
         commander = sender()
         connection ! frame
 
-      case f: Frame =>
-        log.info("Client Frame Received:" + f)
-        commander ! f
+      case frame: Frame =>
+        log.info("Client Frame received:" + frame)
+        commander ! frame
 
       case "upgraded?" => sender() ! true
     }
@@ -164,8 +127,8 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
     runTest(req) { client =>
       val probe = TestProbe()
-      probe.send(client, Send(TextFrame(ByteString("123"))))
-      probe.expectMsg(TextFrame(ByteString("123")))
+      probe.send(client, Send(TextFrame("123")))
+      probe.expectMsg(TextFrame("123"))
       probe.send(client, Send(CloseFrame()))
     }
   }
@@ -176,8 +139,8 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
     runTest(req) { client =>
       val probe = TestProbe()
-      probe.send(client, Send(TextFrame(ByteString("123"))))
-      probe.expectMsg(TextFrame(ByteString("123")))
+      probe.send(client, Send(TextFrame("123")))
+      probe.expectMsg(TextFrame("123"))
       probe.send(client, Send(CloseFrame()))
     }
   }
@@ -200,7 +163,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       val probe = TestProbe()
       val frame = TextFrameStream(1, new ByteArrayInputStream("a very very long string".getBytes("UTF-8")))
       probe.send(client, SendStream(frame))
-      probe.expectMsg(TextFrame(ByteString("a very very long string")))
+      probe.expectMsg(TextFrame("a very very long string"))
     }
   }
 }

@@ -20,7 +20,7 @@ object SimpleServer extends App with MySslConfiguration {
     }
   }
 
-  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
