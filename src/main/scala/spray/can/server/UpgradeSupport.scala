@@ -5,26 +5,14 @@ import akka.actor.ExtendedActorSystem
 import akka.actor.ExtensionKey
 import akka.actor.Props
 import akka.io.Tcp
-import akka.util.{ ByteString, CompactByteString }
-import scala.annotation.tailrec
 import spray.can.Http
 import spray.can.HttpExt
 import spray.can.HttpManager
 import spray.can.client.{ UpgradableHttpClientSettingsGroup, ClientConnectionSettings }
-import spray.can.parsing.Parser
-import spray.can.parsing.HttpResponsePartParser
-import spray.can.parsing.Result
-import spray.can.websocket.{ HandshakeResponseEvent, HandshakeContext, HandshakeResponse }
-import spray.http.HttpEntity
-import spray.http.HttpHeader
-import spray.http.HttpHeaders.{ `Transfer-Encoding`, `Content-Type`, `Content-Length` }
-import spray.http.HttpMethods
-import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.io.DynamicPipelines
 import spray.io.PipelineContext
 import spray.io.Pipelines
-import spray.io.PipelineStage
 import spray.io.RawPipelineStage
 import spray.io.SslTlsContext
 
@@ -39,11 +27,10 @@ object UpgradeSupport {
         val cpl = defaultPipelines.commandPipeline
 
         val commandPipeline: CPL = {
-          case UHttp.Upgrade(pipelineStage, response) ⇒
+          case UHttp.UpgradeServer(pipelineStage, response) ⇒
             cpl(Http.MessageCommand(response))
             val upgradedPipelines = upgradedState(pipelineStage(settings)(context, commandPL, eventPL))
             become(upgradedPipelines)
-
             upgradedPipelines.eventPipeline(UHttp.Upgraded)
 
           case cmd => cpl(cmd)
@@ -72,58 +59,23 @@ object UpgradeSupport {
       def defaultState = new State {
         val defaultPipelines = defaultStage(context, commandPL, eventPL)
         val cpl = defaultPipelines.commandPipeline
+        val epl = defaultPipelines.eventPipeline
 
         val commandPipeline: CPL = {
-          case UHttp.UpgradeClient(pipelineStage, request) =>
-            cpl(Http.MessageCommand(request))
-            become(upgradingState(defaultPipelines, pipelineStage(settings)))
+          case UHttp.UpgradeClient(pipelineStage, response) =>
+            val upgradedPipelines = upgradedState(pipelineStage(settings)(context, commandPL, eventPL))
+            become(upgradedPipelines)
+            upgradedPipelines.eventPipeline(UHttp.Upgraded)
+            // There should be no response.entity according to Http spec:
+            // http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.3
+            // We just keep the following code for reference, where, the response.entity
+            // actually was dropped by spray-can with an "Illegal response..." failing.
+            upgradedPipelines.eventPipeline(Tcp.Received(response.entity.data.toByteString))
 
-          case cmd ⇒ cpl(cmd)
+          case cmd => cpl(cmd)
         }
 
         val eventPipeline = defaultPipelines.eventPipeline
-      }
-
-      def upgradingState(defaultPipelines: Pipelines, upgradedPipelines: HandshakeContext => PipelineStage) = new State {
-        var remainingData: Option[ByteString] = None
-        var parser: Parser = new HttpResponsePartParser(settings.parserSettings)() {
-          override def parseEntity(headers: List[HttpHeader], input: ByteString, bodyStart: Int, clh: Option[`Content-Length`],
-                                   cth: Option[`Content-Type`], teh: Option[`Transfer-Encoding`], hostHeaderPresent: Boolean,
-                                   closeAfterResponseCompletion: Boolean): Result = {
-            remainingData = Some(input.drop(bodyStart))
-
-            emit(message(headers, HttpEntity.Empty), closeAfterResponseCompletion) { Result.IgnoreAllFurtherInput }
-          }
-          setRequestMethodForNextResponse(HttpMethods.GET)
-        }
-
-        @tailrec def handle(result: Result): Unit = result match {
-          case Result.NeedMoreData(next) =>
-            parser = next
-          case Result.Emit(part, closeAfterResponseCompletion, continue) =>
-            eventPipeline(HandshakeResponseEvent(part, remainingData.get))
-            handle(continue())
-          case Result.Expect100Continue(continue) =>
-            handle(continue())
-          case Result.ParsingError(status, info) =>
-            defaultPipelines.commandPipeline(Http.Close)
-          case Result.IgnoreAllFurtherInput =>
-        }
-
-        val commandPipeline: CPL = {
-          case cmd => defaultPipelines.commandPipeline(cmd)
-        }
-
-        val eventPipeline: EPL = {
-          case Tcp.Received(data: CompactByteString) => handle(parser(data))
-          case HandshakeResponseEvent(HandshakeResponse(state), data) => {
-            val pipelines = upgradedState(upgradedPipelines(state)(context, commandPL, eventPL))
-            become(pipelines)
-            pipelines.eventPipeline(UHttp.Upgraded)
-            pipelines.eventPipeline(Tcp.Received(data))
-          }
-          case ev => defaultPipelines.eventPipeline(ev)
-        }
       }
 
       def upgradedState(pipelines: Pipelines) = new State {
@@ -149,11 +101,20 @@ object UpgradeSupport {
  *    IO(UHttp) ! Http.Bind
  * instead of:
  *    IO(Http) ! Http.Bind
+ *
+ * clould be in spray.can.Http, since Upgrade is part of HTTP spec.
  */
 object UHttp extends ExtensionKey[UHttpExt] {
-  // upgrades -- clould be in spray.can.Http, since Upgrade is part of HTTP spec.
-  case class Upgrade(pipelineStage: ServerSettings ⇒ RawPipelineStage[SslTlsContext], response: HttpResponse) extends Tcp.Command
-  case class UpgradeClient(pipelineStage: ClientConnectionSettings => HandshakeContext => RawPipelineStage[PipelineContext], request: HttpRequest) extends Tcp.Command
+  /**
+   * @param pipelineStage
+   * @paran response  response that should send to client to notify the sucess of upgrading.
+   */
+  final case class UpgradeServer(pipelineStage: ServerSettings => RawPipelineStage[SslTlsContext], response: HttpResponse) extends Tcp.Command
+  /**
+   * @param pipelineStage
+   * @paran response  response that have got from server to notify the success of upgrading. (May contain useful data in entity.)
+   */
+  final case class UpgradeClient(pipelineStage: ClientConnectionSettings => RawPipelineStage[PipelineContext], response: HttpResponse) extends Tcp.Command
   case object Upgraded extends Tcp.Event
 }
 

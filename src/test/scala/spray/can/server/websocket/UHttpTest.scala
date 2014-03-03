@@ -30,14 +30,10 @@ import spray.can.websocket.frame.PongFrame
 import spray.can.websocket.frame.TextFrame
 import spray.can.websocket.frame.TextFrameStream
 import spray.http.HttpHeaders
-import spray.http.HttpMethods
 import spray.http.HttpRequest
 
 class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MySslConfiguration {
-  val testConf: Config = ConfigFactory.parseString("""
-    akka {
-      loglevel = WARNING
-    }""")
+  val testConf: Config = ConfigFactory.load
 
   implicit val system = ActorSystem("UHttpTestSystem", testConf)
   implicit val timeout = akka.util.Timeout(5.seconds)
@@ -56,6 +52,22 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
   }
 
   class WebSocketWorker(var serverConnection: ActorRef) extends websocket.WebSocketConnection {
+    override def handshaking: Receive = {
+
+      // when a client request for upgrading to websocket comes in, we send
+      // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
+      case websocket.HandshakeRequest(state) =>
+        state match {
+          case wsFailure: websocket.HandshakeFailure => sender() ! wsFailure.response
+          case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeServer(websocket.pipelineStage(self, wsContext), wsContext.response)
+        }
+
+      // upgraded successfully
+      case UHttp.Upgraded =>
+        log.debug("{} upgraded to WebSocket.", self)
+        context.become(businessLogic orElse closeLogic)
+    }
+
     def businessLogic: Receive = {
       case x: BinaryFrame =>
         log.info("Server BinaryFrame Received:" + x)
@@ -88,12 +100,21 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       case x: Http.Connected =>
         log.info("Client Connected: " + sender())
         connection = sender()
-        connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), req)
+        sender() ! req
+
+      case resp @ websocket.HandshakeResponse(state) =>
+        state match {
+          case wsFailure: websocket.HandshakeFailure =>
+          case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeClient(websocket.clientPipelineStage(self, wsContext), resp)
+        }
 
       case UHttp.Upgraded =>
         log.info("Client Upgraded!")
         connection = sender()
         context.become(upgraded)
+
+      case x =>
+        log.info("Got {}", x)
     }
 
     def upgraded: Receive = {
@@ -139,11 +160,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
   }
 
   test("handshake") {
-    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Connection("Upgrade"),
-      HttpHeaders.RawHeader("Upgrade", "websocket"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
+    val req = websocket.basicHandshakeRepuset("/mychat")
 
     runTest(req) { client =>
       val probe = TestProbe()
@@ -154,12 +171,8 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
   }
 
   test("handshake with permessage-deflate") {
-    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Connection("Upgrade"),
-      HttpHeaders.RawHeader("Upgrade", "websocket"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw=="),
-      HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate")))
+    val basicReq = websocket.basicHandshakeRepuset("/mychat")
+    val req = basicReq.withHeaders(HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate") :: basicReq.headers)
 
     runTest(req) { client =>
       val probe = TestProbe()
@@ -170,11 +183,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
   }
 
   test("ping pong") {
-    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Connection("Upgrade"),
-      HttpHeaders.RawHeader("Upgrade", "websocket"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
+    val req = websocket.basicHandshakeRepuset("/mychat")
 
     runTest(req) { client =>
       val probe = TestProbe()
@@ -185,11 +194,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
   }
 
   test("Frame Stream") {
-    val req = HttpRequest(HttpMethods.GET, "/mychat", List(
-      HttpHeaders.Connection("Upgrade"),
-      HttpHeaders.RawHeader("Upgrade", "websocket"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
-      HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
+    val req = websocket.basicHandshakeRepuset("/mychat")
 
     runTest(req) { client =>
       val probe = TestProbe()

@@ -14,16 +14,32 @@ import spray.can.websocket.frame.Frame
 import spray.can.websocket.frame.PongFrame
 import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
 
+/**
+ * According to Http spec @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.3
+ *
+ *   All 1xx (informational), 204 (no content), and 304 (not modified) responses
+ *   MUST NOT include a message-body.
+ *
+ * But Autobahn testsuite try to carry a frame in body of handshake response,
+ * which breaks the spec. We need to contact Autobahn team, or make a correct
+ * test case for ws client testing.
+ */
 object SimpleClient extends App with MySslConfiguration {
 
-  class WebSocketClient(req: HttpRequest, onMessage: Frame => Unit, onClose: () => Unit) extends Actor with ActorLogging {
+  class WebSocketClient(handshakeRequest: HttpRequest, onMessage: Frame => Unit, onClose: () => Unit) extends Actor with ActorLogging {
     var connection: ActorRef = null
     var commander: ActorRef = null
 
     def receive = {
       case x: Http.Connected =>
         connection = sender()
-        connection ! UHttp.UpgradeClient(websocket.clientPipelineStage(self), req)
+        sender() ! handshakeRequest
+
+      case resp @ websocket.HandshakeResponse(state) =>
+        state match {
+          case wsFailure: websocket.HandshakeFailure =>
+          case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeClient(websocket.clientPipelineStage(self, wsContext), resp)
+        }
 
       case UHttp.Upgraded =>
         connection = sender()

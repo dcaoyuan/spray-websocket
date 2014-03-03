@@ -2,7 +2,6 @@ package spray.can
 
 import akka.actor.ActorRef
 import akka.io.Tcp
-import akka.util.ByteString
 import java.security.MessageDigest
 import scala.util.Random
 import spray.can.client.ClientConnectionSettings
@@ -15,7 +14,7 @@ import spray.http.HttpHeader
 import spray.http.HttpHeaders
 import spray.http.HttpHeaders.Connection
 import spray.http.HttpHeaders.RawHeader
-import spray.http.HttpMessagePart
+import spray.http.HttpMethods
 import spray.http.HttpProtocols
 import spray.http.HttpRequest
 import spray.http.HttpResponse
@@ -61,14 +60,21 @@ package object websocket {
   }
 
   def clientPipelineStage(clientHandler: ActorRef,
+                          wsContext: HandshakeContext,
                           wsFrameSizeLimit: Int = Int.MaxValue,
-                          maskGen: Option[() => Array[Byte]] = Some(defaultMaskGen)) = (settings: ClientConnectionSettings) => (wsContext: HandshakeContext) => {
+                          maskGen: Option[() => Array[Byte]] = Some(defaultMaskGen)) = (settings: ClientConnectionSettings) => {
 
     WebSocketFrontend(settings, clientHandler) >>
       FrameComposing(wsFrameSizeLimit, wsContext) >>
       FrameParsing(wsFrameSizeLimit) >>
       FrameRendering(maskGen, wsContext)
   }
+
+  def basicHandshakeRepuset(uriPath: String) = HttpRequest(HttpMethods.GET, uriPath, List(
+    HttpHeaders.Connection("Upgrade"),
+    HttpHeaders.RawHeader("Upgrade", "websocket"),
+    HttpHeaders.RawHeader("Sec-WebSocket-Version", "13"),
+    HttpHeaders.RawHeader("Sec-WebSocket-Key", "x3JJHMbDL1EzLkh9GBhXDw==")))
 
   sealed trait Handshake {
 
@@ -178,12 +184,13 @@ package object websocket {
 
   object HandshakeResponse extends Handshake {
 
-    def unapply(resp: HttpResponse): Option[HandshakeContext] = resp match {
+    def unapply(resp: HttpResponse): Option[HandshakeState] = resp match {
       case HttpResponse(StatusCodes.SwitchingProtocols, entity, headers, HttpProtocols.`HTTP/1.1`) => tryHandshake(headers, entity)
       case _ => None
     }
 
-    def tryHandshake(headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeContext] = {
+    def tryHandshake(headers: List[HttpHeader], entity: HttpEntity): Option[HandshakeState] = {
+
       parseHeaders(headers) match {
         case Some(collector) => {
           val key = collector.accept
@@ -198,8 +205,8 @@ package object websocket {
             //  Some(HandshakeFailure(protocols, extentions))
             //}
             case None => Some(HandshakeContext(null, key, protocols, extentions, None))
-        }
           }
+        }
         case _ => None
       }
     }
@@ -252,7 +259,5 @@ package object websocket {
         override def response = resp
       }
   }
-
-  case class HandshakeResponseEvent(resp: HttpMessagePart, data: ByteString) extends Tcp.Event
 }
 

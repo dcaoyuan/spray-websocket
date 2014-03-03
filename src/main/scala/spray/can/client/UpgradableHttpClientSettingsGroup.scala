@@ -45,9 +45,9 @@ private object UpgradableHttpClientConnection {
         ResponseChunkAggregation(responseChunkAggregationLimit) ? (responseChunkAggregationLimit > 0) >>
         SSLSessionInfoSupport ? parserSettings.sslSessionInfoHeader >>
         ResponseParsing(parserSettings) >>
-        RequestRendering(settings) >>
-        ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite)
+        RequestRendering(settings)
     } >>
+      ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite) >>
       SslTlsSupportV2(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) >>
       TickGenerator(reapingCycle) ? (idleTimeout.isFinite || requestTimeout.isFinite)
   }
