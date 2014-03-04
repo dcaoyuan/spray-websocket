@@ -15,7 +15,7 @@ object FrameParsing {
     def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines = new Pipelines {
       val parser = new FrameParser()
 
-      val commandPipeline: CPL = commandPL
+      val commandPipeline = commandPL
 
       val eventPipeline: EPL = {
         case Tcp.Received(data) =>

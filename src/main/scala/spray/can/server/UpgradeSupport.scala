@@ -87,6 +87,30 @@ object UpgradeSupport {
 
         case class UpgradeResponseReady(response: HttpResponse, remainingData: ByteString) extends Tcp.Event
 
+        val commandPipeline = defaultPipelines.commandPipeline
+
+        val eventPipeline: EPL = {
+          case Tcp.Received(data) =>
+            handleParsingResult(parser(data))
+
+          case UpgradeResponseReady(response, remainingData) =>
+            // when response was parsed, we should become to upgradedState immediately
+            // so as to receive and process incoming data under new protocal.
+            // @Note the data may keep in coming during shift the state.
+            upgradePipelineStage(response) match {
+              case Some(stage) =>
+                val upgradedPipelines = upgradedState(stage(settings)(context, commandPL, eventPL))
+                become(upgradedPipelines)
+                upgradedPipelines.eventPipeline(UHttp.Upgraded)
+                context.log.debug("Client upgraded.")
+                upgradedPipelines.eventPipeline(Tcp.Received(remainingData))
+
+              case None => become(defaultState)
+            }
+
+          case ev => defaultPipelines.eventPipeline(ev)
+        }
+
         /**
          * Split non entity allowed http response data to http part and remaining data
          *
@@ -129,30 +153,6 @@ object UpgradeSupport {
 
           case Result.Expect100Continue(continue) =>
             handleParsingResult(continue())
-        }
-
-        val commandPipeline = defaultPipelines.commandPipeline
-
-        val eventPipeline: EPL = {
-          case Tcp.Received(data) =>
-            handleParsingResult(parser(data))
-
-          case UpgradeResponseReady(response, remainingData) =>
-            // when response was parsed, we should become to upgradedState immediately
-            // so as to receive and process incoming data under new protocal.
-            // @Note the data may keep in coming during shift the state.
-            upgradePipelineStage(response) match {
-              case Some(stage) =>
-                val upgradedPipelines = upgradedState(stage(settings)(context, commandPL, eventPL))
-                become(upgradedPipelines)
-                upgradedPipelines.eventPipeline(UHttp.Upgraded)
-                context.log.debug("Client upgraded.")
-                upgradedPipelines.eventPipeline(Tcp.Received(remainingData))
-
-              case None => become(defaultState)
-            }
-
-          case ev => defaultPipelines.eventPipeline(ev)
         }
 
         def handleError(info: ErrorInfo): Unit = {
