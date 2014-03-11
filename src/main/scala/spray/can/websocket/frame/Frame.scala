@@ -72,7 +72,7 @@ object Frame {
     Some(x.fin, x.opcode, x.payload)
 }
 
-abstract class Frame(_finRsvOp: Byte, _payload: ByteString) {
+abstract class Frame(_finRsvOp: Byte, _payload: ByteString) extends Serializable {
   import Frame._
 
   def finRsvOp: Byte = _finRsvOp
