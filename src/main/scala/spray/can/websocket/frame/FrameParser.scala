@@ -86,10 +86,11 @@ final class FrameParser {
       if (leftLen == 0) {
         right
       } else {
-        val ls = Array.ofDim[Byte](leftLen)
-        left.copyToArray(ls, 0, leftLen)
-        val rs = right.toArray
-        ByteString(ls ++ rs).iterator
+        val rightLen = right.len
+        val bytes = Array.ofDim[Byte](leftLen + rightLen)
+        left.copyToArray(bytes, 0, leftLen)
+        right.copyToArray(bytes, leftLen, rightLen)
+        ByteString(bytes).iterator
       }
     }
   }
@@ -163,12 +164,12 @@ final class FrameParser {
 
     case ExpectMaskingKey(n) =>
       maskingKey = Array.ofDim[Byte](n.toInt)
-      input.getBytes(maskingKey, 0, n.toInt)
+      input.getBytes(maskingKey)
       ExpectData(payloadLen)
 
     case ExpectData(n) =>
       val payload = Array.ofDim[Byte](n.toInt)
-      input.getBytes(payload, 0, n.toInt)
+      input.getBytes(payload)
       if (isMasked) {
         maskData(payload, maskingKey)
       }
