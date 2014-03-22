@@ -36,7 +36,7 @@ object Dependencies {
   val akka_actor = "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION
   val akka_testkit = "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test"
   val scalatest = "org.scalatest" %% "scalatest" % "2.0" % "test"
-  val specs2 = "org.specs2" %% "specs2" % "2.2.3"
+  val specs2 = "org.specs2" %% "specs2" % "2.2.3" % "test"
 
   val all = Seq(spray_can, akka_actor, scalatest, akka_testkit, specs2, spray_testkit)
 
