@@ -10,7 +10,7 @@ import spray.io.TickGenerator
 
 class UpgradableHttpClientSettingsGroup(settings: ClientConnectionSettings,
                                         httpSettings: HttpExt#Settings)
-  extends HttpClientSettingsGroup(settings, httpSettings) {
+    extends HttpClientSettingsGroup(settings, httpSettings) {
   override val pipelineStage = UpgradableHttpClientConnection.pipelineStage(settings)
 
   override def receive = {

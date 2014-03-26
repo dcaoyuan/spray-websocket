@@ -175,8 +175,8 @@ package object websocket {
             //  Some(HandshakeFailure(protocols, extentions))
             //}
             case None => Some(HandshakeContext(req, key, protocols, extentions, None))
-        }
           }
+        }
         case _ => None
       }
     }
@@ -222,9 +222,9 @@ package object websocket {
   }
 
   final case class HandshakeFailure(
-    request: HttpRequest,
-    protocal: List[String],
-    extensions: Map[String, Map[String, String]]) extends HandshakeState {
+      request: HttpRequest,
+      protocal: List[String],
+      extensions: Map[String, Map[String, String]]) extends HandshakeState {
 
     private def responseHeaders: List[HttpHeader] = List(
       HttpHeaders.RawHeader("Sec-WebSocket-Extensions", "permessage-deflate"))
@@ -236,11 +236,11 @@ package object websocket {
   }
 
   case class HandshakeContext(
-    request: HttpRequest,
-    acceptanceKey: String,
-    protocal: List[String],
-    extensions: Map[String, Map[String, String]],
-    pmce: Option[PMCE]) extends HandshakeState {
+      request: HttpRequest,
+      acceptanceKey: String,
+      protocal: List[String],
+      extensions: Map[String, Map[String, String]],
+      pmce: Option[PMCE]) extends HandshakeState {
 
     def isCompressionNegotiated = pmce.isDefined
 

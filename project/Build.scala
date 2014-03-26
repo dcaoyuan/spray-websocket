@@ -1,5 +1,7 @@
 import sbt._
 import sbt.Keys._
+import com.typesafe.sbt.SbtScalariform
+import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
 object Build extends sbt.Build {
 
@@ -10,6 +12,7 @@ object Build extends sbt.Build {
       libraryDependencies ++= Dependencies.all))
 
   def commonSettings = Defaults.defaultSettings ++
+    formatSettings ++
     Seq(
       organization := "com.wandoulabs",
       version := "0.1",
@@ -25,6 +28,21 @@ object Build extends sbt.Build {
         "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
         "spray" at "http://repo.spray.io",
         "spray nightly" at "http://nightlies.spray.io/"))
+    
+
+  lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
+    ScalariformKeys.preferences in Compile := formattingPreferences,
+    ScalariformKeys.preferences in Test := formattingPreferences)
+
+  import scalariform.formatter.preferences._
+  def formattingPreferences =
+    FormattingPreferences()
+      .setPreference(RewriteArrowSymbols, false)
+      .setPreference(AlignParameters, true)
+      .setPreference(AlignSingleLineCaseStatements, true)
+      .setPreference(DoubleIndentClassDeclaration, true)
+      .setPreference(IndentSpaces, 2)
+  
 }
 
 object Dependencies {

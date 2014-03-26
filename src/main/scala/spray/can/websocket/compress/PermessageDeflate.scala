@@ -57,12 +57,12 @@ object PermessageDeflate {
  * If true, the same LZ77 window is used between messages. Can be overridden with extension parameters.
  */
 final case class PermessageDeflate(
-  isServer: Boolean = true,
-  server_no_context_takeover: Boolean = false,
-  client_no_context_takeover: Boolean = false,
-  server_max_window_bits: Int = PermessageDeflate.WBITS_NOT_SET,
-  client_max_window_bits: Int = PermessageDeflate.WBITS_NOT_SET,
-  mem_level: Int = PermessageDeflate.DEFAULT_MEM_LEVEL) extends PMCE {
+    isServer: Boolean = true,
+    server_no_context_takeover: Boolean = false,
+    client_no_context_takeover: Boolean = false,
+    server_max_window_bits: Int = PermessageDeflate.WBITS_NOT_SET,
+    client_max_window_bits: Int = PermessageDeflate.WBITS_NOT_SET,
+    mem_level: Int = PermessageDeflate.DEFAULT_MEM_LEVEL) extends PMCE {
 
   import PermessageDeflate._
 
