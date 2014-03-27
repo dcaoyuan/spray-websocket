@@ -10,16 +10,22 @@ import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
 
+  object WebSocketServer {
+    def props() = Props(classOf[WebSocketServer])
+  }
   class WebSocketServer extends Actor with ActorLogging {
     def receive = {
       // when a new connection comes in we register a WebSocketConnection actor as the per connection handler
       case Http.Connected(remoteAddress, localAddress) =>
         val serverConnection = sender()
-        val conn = context.actorOf(Props(classOf[WebSocketWorker], serverConnection))
+        val conn = context.actorOf(WebSocketWorker.props(serverConnection))
         serverConnection ! Http.Register(conn)
     }
   }
 
+  object WebSocketWorker {
+    def props(serverConnection: ActorRef) = Props(classOf[WebSocketWorker], serverConnection)
+  }
   class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
@@ -33,7 +39,7 @@ object SimpleServer extends App with MySslConfiguration {
   implicit val system = ActorSystem()
   import system.dispatcher
 
-  val server = system.actorOf(Props(classOf[WebSocketServer]), "websocket")
+  val server = system.actorOf(WebSocketServer.props(), "websocket")
 
   IO(UHttp) ! Http.Bind(server, "localhost", 8080)
 

@@ -18,55 +18,6 @@ Or, just write your own.
 
 ```scala
 
-package spray.can.websocket
-
-import akka.actor.Actor
-import akka.actor.ActorLogging
-import akka.actor.ActorRef
-import spray.can.Http
-import spray.can.server.UHttp
-import spray.can.websocket
-
-trait WebSocketServerConnection extends Actor with ActorLogging {
-  /**
-   * The HttpServerConnection actor, which holds the pipelines
-   */
-  def serverConnection: ActorRef
-
-  def receive = handshaking orElse closeLogic
-
-  def closeLogic: Receive = {
-    case ev: Http.ConnectionClosed =>
-      context.stop(self)
-      log.debug("Connection closed on event: {}", ev)
-  }
-
-  def handshaking: Receive = {
-
-    // when a client request for upgrading to websocket comes in, we send
-    // UHttp.Upgrade to upgrade to websocket pipelines with an accepting response.
-    case websocket.HandshakeRequest(state) =>
-      state match {
-        case wsFailure: websocket.HandshakeFailure => sender() ! wsFailure.response
-        case wsContext: websocket.HandshakeContext => sender() ! UHttp.UpgradeServer(websocket.pipelineStage(self, wsContext), wsContext.response)
-      }
-
-    // upgraded successfully
-    case UHttp.Upgraded =>
-      context.become(businessLogic orElse closeLogic)
-  }
-
-  def businessLogic: Receive
-
-}
-
-```
-
-
-A simple example:
-
-```scala
-
 package spray.can.websocket.examples
 
 import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef }
@@ -79,16 +30,22 @@ import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
 
+  object WebSocketServer {
+    def props() = Props(classOf[WebSocketServer])
+  }
   class WebSocketServer extends Actor with ActorLogging {
     def receive = {
       // when a new connection comes in we register a WebSocketConnection actor as the per connection handler
       case Http.Connected(remoteAddress, localAddress) =>
         val serverConnection = sender()
-        val conn = context.actorOf(Props(classOf[WebSocketWorker], serverConnection))
+        val conn = context.actorOf(WebSocketWorker.props(serverConnection))
         serverConnection ! Http.Register(conn)
     }
   }
 
+  object WebSocketWorker {
+    def props(serverConnection: ActorRef) = Props(classOf[WebSocketWorker], serverConnection)
+  }
   class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection {
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
@@ -102,7 +59,7 @@ object SimpleServer extends App with MySslConfiguration {
   implicit val system = ActorSystem()
   import system.dispatcher
 
-  val server = system.actorOf(Props(classOf[WebSocketServer]), "websocket")
+  val server = system.actorOf(WebSocketServer.props(), "websocket")
 
   IO(UHttp) ! Http.Bind(server, "localhost", 8080)
 
