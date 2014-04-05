@@ -1,15 +1,13 @@
 package spray.can.websocket
 
-import akka.actor.Actor
-import akka.actor.ActorLogging
-import akka.actor.ActorRef
+import akka.actor.{ Stash, Actor, ActorLogging, ActorRef }
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
 import spray.http.HttpRequest
 import spray.http.HttpResponse
 
-trait WebSocketClientConnection extends Actor with ActorLogging {
+trait WebSocketClientConnection extends Actor with ActorLogging with Stash {
   def upgradeRequest: HttpRequest
 
   private var _connection: ActorRef = _
@@ -45,6 +43,11 @@ trait WebSocketClientConnection extends Actor with ActorLogging {
       // @see WebSocketFrontend#receiverRef
       _connection = sender()
       context.become(businessLogic orElse closeLogic)
+      unstashAll()
+
+    case cmd @ (_: Send | _: SendStream) =>
+      log.debug("stashing cmd {} ", cmd)
+      stash()
   }
 
   def businessLogic: Receive
