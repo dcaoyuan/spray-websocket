@@ -6,6 +6,8 @@ import akka.actor.ActorRef
 import spray.can.Http
 import spray.can.server.UHttp
 import spray.can.websocket
+import spray.can.websocket.frame.Frame
+import spray.can.websocket.frame.FrameStream
 
 trait WebSocketServerConnection extends Actor with ActorLogging {
   /**
@@ -37,5 +39,13 @@ trait WebSocketServerConnection extends Actor with ActorLogging {
   }
 
   def businessLogic: Receive
+
+  def send(frame: Frame) {
+    serverConnection ! FrameCommand(frame)
+  }
+
+  def send(frame: FrameStream) {
+    serverConnection ! FrameStreamCommand(frame)
+  }
 
 }
