@@ -10,6 +10,8 @@ import spray.http.HttpRequest
 
 object SimpleServer extends App with MySslConfiguration {
 
+  final case class Push(msg: String)
+
   object WebSocketServer {
     def props() = Props(classOf[WebSocketServer])
   }
@@ -31,6 +33,8 @@ object SimpleServer extends App with MySslConfiguration {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
         sender() ! x
+
+      case Push(msg)      => send(TextFrame(msg))
 
       case x: HttpRequest => // do something
     }
