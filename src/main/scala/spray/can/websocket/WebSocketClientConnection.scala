@@ -6,6 +6,7 @@ import spray.can.server.UHttp
 import spray.can.websocket
 import spray.http.HttpRequest
 import spray.http.HttpResponse
+import spray.can.Http.Connect
 
 trait WebSocketClientConnection extends Actor with ActorLogging with Stash {
   def upgradeRequest: HttpRequest
@@ -44,6 +45,10 @@ trait WebSocketClientConnection extends Actor with ActorLogging with Stash {
       _connection = sender()
       context.become(businessLogic orElse closeLogic)
       unstashAll()
+
+    case Http.CommandFailed(con: Connect) =>
+      log.warning("failed to connect to {}", con.remoteAddress)
+      context.stop(self)
 
     case cmd @ (_: Send | _: SendStream) =>
       log.debug("stashing cmd {} ", cmd)
