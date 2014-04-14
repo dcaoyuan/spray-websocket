@@ -15,15 +15,10 @@ object Build extends sbt.Build {
     formatSettings ++
     Seq(
       organization := "com.wandoulabs",
-      version := "0.1",
+      version := "0.1.1-SNAPSHOT",
       scalaVersion := "2.10.3",
       scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
-      publishTo <<= isSnapshot { isSnapshot =>
-        val id = if (isSnapshot) "snapshots" else "releases"
-        val uri = "http://repo.scala-sbt.org/scalasbt/sbt-plugin-" + id
-        Some(Resolver.url("sbt-plugin-" + id, url(uri))(Resolver.ivyStylePatterns))
-      },
-      publishMavenStyle := false,
+      publishMavenStyle := true,
       resolvers ++= Seq(
         "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
         "spray" at "http://repo.spray.io",
