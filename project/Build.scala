@@ -22,8 +22,15 @@ object Build extends sbt.Build {
       resolvers ++= Seq(
         "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
         "spray" at "http://repo.spray.io",
-        "spray nightly" at "http://nightlies.spray.io/"))
-    
+        "spray nightly" at "http://nightlies.spray.io/"),
+      publishTo := {
+        val nexus = "https://oss.sonatype.org/"
+        if (version.value.trim.endsWith("SNAPSHOT"))
+          Some("snapshots" at nexus + "content/repositories/snapshots")
+        else
+          Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+      },
+      credentials += Credentials(Path.userHome / ".ivy2" / ".wandou-credentials"))
 
   lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     ScalariformKeys.preferences in Compile := formattingPreferences,
