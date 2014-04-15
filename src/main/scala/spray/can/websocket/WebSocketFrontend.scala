@@ -11,13 +11,10 @@ import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.actor.Props
 import akka.io.Tcp
-import akka.io.Tcp.Write
-import akka.io.Tcp.CommandFailed
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
 import spray.can.websocket.frame.FrameParser
-import spray.can.websocket.frame.FrameParser.Success
-import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame, Opcode, TextFrame }
+import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame, Opcode, TextFrame, BinaryFrame }
 import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -63,23 +60,29 @@ object WebSocketFrontend {
       val commandPipeline = commandPL
 
       val eventPipeline: EPL = {
-        case FrameInEvent(frame: PingFrame)     => commandPL(FrameCommand(frame.copy(opcode = Opcode.Pong))) // auto bounce a pong frame
-        case FrameInEvent(frame: CloseFrame)    => commandPL(FrameCommand(frame)) // auto bounce a close frame
-        case FrameInEvent(_: ContinuationFrame) => // We should have composed it during lower stage. Anyway, does not need to tell handler
+        case FrameInEvent(frame: PingFrame)        => commandPL(FrameCommand(frame.copy(opcode = Opcode.Pong))) // auto bounce a pong frame
+        case FrameInEvent(frame: CloseFrame)       => commandPL(FrameCommand(frame)) // auto bounce a close frame
+        case FrameInEvent(_: ContinuationFrame)    => // We should have composed it during lower stage. Anyway, does not need to tell handler
 
-        case FrameInEvent(frame)                => commandPL(Pipeline.Tell(handler, frame, receiverRef))
+        case FrameInEvent(frame)                   => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
-        case ev @ UHttp.Upgraded                => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case UHttp.Upgraded                        => commandPL(Pipeline.Tell(handler, UHttp.Upgraded, receiverRef))
+        case Http.MessageEvent(resp: HttpResponse) => commandPL(Pipeline.Tell(handler, resp, receiverRef))
 
         case ev: Tcp.ConnectionClosed =>
           commandPL(Pipeline.Tell(handler, ev, receiverRef))
-          context.log.info(ev.toString)
+          context.log.info("", ev) // TODO log.debug
+          eventPL(ev)
 
-        case Http.MessageEvent(resp: HttpResponse) => commandPL(Pipeline.Tell(handler, resp, receiverRef))
-
-        case CommandFailed(e: Write) => new FrameParser().onReceive(e.data.iterator) {
-          case Success(TextFrame(payload)) => context.log.error("CommandFailed: " + payload.utf8String)
-        }
+        case ev @ Tcp.CommandFailed(e: Tcp.Write) =>
+          new FrameParser().onReceive(e.data.iterator) {
+            case FrameParser.Success(TextFrame(payload)) => context.log.warning("CommandFailed for Tcp.Write text frame: {} ...", payload.take(50).utf8String)
+            case FrameParser.Success(BinaryFrame(payload)) => context.log.warning("CommandFailed for Tcp.Write binary frame: {} ...", payload.take(50))
+            case FrameParser.Success(ContinuationFrame(payload)) => context.log.warning("CommandFailed for Tcp.Write continuation frame: {} ...", payload.take(50))
+            case FrameParser.Success(frame) => context.log.warning("CommandFailed for Tcp.Write frame: {}", frame.opcode)
+            case x => context.log.warning("CommandFailed for Tcp.Write: {} ...", e.data.take(50).utf8String)
+          }
+          eventPL(ev)
 
         case ev => eventPL(ev)
       }
