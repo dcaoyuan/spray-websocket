@@ -1,12 +1,31 @@
 language: scala
-script: 
-  - sbt ++$TRAVIS_SCALA_VERSION compile test:compile
-  - sbt ++$TRAVIS_SCALA_VERSION test
 scala:
   - 2.10.3
 jdk:
-  - oraclejdk7
+  - openjdk7
+
+script:
+  - sbt ++$TRAVIS_SCALA_VERSION compile test:compile
+  - sbt ++$TRAVIS_SCALA_VERSION test
+after_success:
+  - >
+      test "${TRAVIS_PULL_REQUEST}" = 'false' &&
+      test "${TRAVIS_JDK_VERSION}" = 'openjdk7' &&
+      sbt 'set resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"'
+      'set credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", System.getenv("SONATYPE_USER"), System.getenv("SONATYPE_PASS"))'
+      ++${TRAVIS_SCALA_VERSION}
+      publish
+
+branches:
+  only:
+    - master
+
+env:
+  global:
+  - secure: MjQnfUGTbHGdGD8ElMeFtR/4OX93LscMZku8jGiaWV7Zp6wGHt+ElonEstH7yavwMwBiNBZDblqcAVOB6Ea6oVVCxTCqD3049rOVl1E1ElN6/25UARJ3Xgxl6thHTUGqQ3ZXcOLm+tsoT6buGJrUC3mLSySGp2dvdDeVqu2LBMM=
+  - secure: e9r5zw8W+BlJ5wjJNkZHkTqWvYmgGTHt2QxMEgM9/puL8imR+38D0BVNioe2SCdqEcNXTnlVHDluR0/JJ3fM69JXvkQP+xUzEo57kK+o/ExVSFOWTc9g9iLfX6PMfACKTpEwXUpQS5Kcps435eHAJdTFw1vXAEhCqEKWdAYtNDs=
+
 notifications:
   email:
-    - dcaoyuan@wandoujia.com
-    - chenxingrun@wandoujia.com
+  - dcaoyuan@wandoujia.com
+  - chenxingrun@wandoujia.com

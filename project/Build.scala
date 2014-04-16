@@ -18,7 +18,6 @@ object Build extends sbt.Build {
       version := "0.1.1-SNAPSHOT",
       scalaVersion := "2.10.3",
       scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
-      publishMavenStyle := true,
       resolvers ++= Seq(
         "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
         "spray" at "http://repo.spray.io",
@@ -30,7 +29,36 @@ object Build extends sbt.Build {
         else
           Some("releases"  at nexus + "service/local/staging/deploy/maven2")
       },
-      credentials += Credentials(Path.userHome / ".ivy2" / ".wandou-credentials"))
+      publishMavenStyle := true,
+      publishArtifact in Test := false,
+      pomIncludeRepository := { (repo: MavenRepository) => false },
+      pomExtra := (
+        <url>https://github.com/wandoulabs/spray-websocket</url>
+        <licenses>
+          <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+          </license>
+        </licenses>
+        <scm>
+          <url>git@github.com:wandoulabs/spray-websocket.git</url>
+          <connection>scm:git:git@github.com:wandoulabs/spray-websocket.git</connection>
+        </scm>
+        <developers>
+          <developer>
+            <id>dcaoyuan</id>
+            <name>Caoyuan DENG</name>
+            <email>dcaoyuan@gmail.com</email>
+          </developer>
+          <developer>
+            <id>cowboy129</id>
+            <name>Xingrun CHEN</name>
+            <email>cowboy129@gmail.com</email>
+          </developer>
+        </developers>
+        )
+    )
 
   lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     ScalariformKeys.preferences in Compile := formattingPreferences,
