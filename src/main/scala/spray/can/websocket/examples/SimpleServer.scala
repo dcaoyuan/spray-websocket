@@ -7,6 +7,7 @@ import spray.can.server.UHttp
 import spray.can.websocket
 import spray.can.websocket.frame.{ BinaryFrame, TextFrame }
 import spray.http.HttpRequest
+import spray.can.websocket.FrameCommandFailed
 
 object SimpleServer extends App with MySslConfiguration {
 
@@ -35,6 +36,9 @@ object SimpleServer extends App with MySslConfiguration {
         sender() ! x
 
       case Push(msg)      => send(TextFrame(msg))
+
+      case x: FrameCommandFailed =>
+        log.error("frame command failed", x)
 
       case x: HttpRequest => // do something
     }

@@ -33,7 +33,7 @@ object WebSocketFrontend {
        *
        *   HttpServerConnection(pipelines' owner) <-> receiverRef <-> handler
        *
-       *    ServerConnection
+       *   UHttpServerConnection
        *   +-------------------+  Frame Out     +---------+
        *   |                   | <-----------   |         |
        *   | WebSocketFrontend |                | Handler |
@@ -76,15 +76,27 @@ object WebSocketFrontend {
 
         case ev @ Tcp.CommandFailed(e: Tcp.Write) =>
           new FrameParser().onReceive(e.data.iterator) {
-            case FrameParser.Success(TextFrame(payload)) => context.log.warning("CommandFailed for Tcp.Write text frame: {} ...", payload.take(50).utf8String)
-            case FrameParser.Success(BinaryFrame(payload)) => context.log.warning("CommandFailed for Tcp.Write binary frame: {} ...", payload.take(50))
-            case FrameParser.Success(ContinuationFrame(payload)) => context.log.warning("CommandFailed for Tcp.Write continuation frame: {} ...", payload.take(50))
-            case FrameParser.Success(frame) => context.log.warning("CommandFailed for Tcp.Write frame: {}", frame.opcode)
-            case x => context.log.warning("CommandFailed for Tcp.Write: {} ...", e.data.take(50).utf8String)
+            case FrameParser.Success(frame @ TextFrame(payload)) =>
+              context.log.warning("CommandFailed for Tcp.Write text frame: {} ...", payload.take(50).utf8String)
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case FrameParser.Success(frame @ BinaryFrame(payload)) =>
+              context.log.warning("CommandFailed for Tcp.Write binary frame: {} ...", payload.take(50))
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case FrameParser.Success(frame @ ContinuationFrame(payload)) =>
+              context.log.warning("CommandFailed for Tcp.Write continuation frame: {} ...", payload.take(50))
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case FrameParser.Success(frame) =>
+              context.log.warning("CommandFailed for Tcp.Write frame: {}", frame.opcode)
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case x =>
+              context.log.warning("CommandFailed for Tcp.Write: {} ...", e.data.take(50).utf8String)
+              commandPL(Pipeline.Tell(handler, ev, receiverRef))
           }
           eventPL(ev)
 
-        case ev => eventPL(ev)
+        case ev =>
+          commandPL(Pipeline.Tell(handler, ev, receiverRef))
+          eventPL(ev)
       }
 
       /**
