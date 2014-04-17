@@ -14,7 +14,7 @@ object Build extends sbt.Build {
   def commonSettings = Defaults.defaultSettings ++
     formatSettings ++
     Seq(
-      organization := "com.wandoulabs",
+      organization := "com.wandoulabs.akka",
       version := "0.1.1-SNAPSHOT",
       scalaVersion := "2.10.3",
       scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),

@@ -35,7 +35,7 @@ object SimpleServer extends App with MySslConfiguration {
       case x @ (_: BinaryFrame | _: TextFrame) =>
         sender() ! x
 
-      case Push(msg)      => send(TextFrame(msg))
+      case Push(msg) => send(TextFrame(msg))
 
       case x: FrameCommandFailed =>
         log.error("frame command failed", x)
