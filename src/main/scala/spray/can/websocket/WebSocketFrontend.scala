@@ -22,6 +22,7 @@ import spray.io.RawPipelineStage
 import spray.can.client.ClientConnectionSettings
 import spray.can.Http
 import spray.http.HttpResponse
+import spray.io.TickGenerator.Tick
 
 object WebSocketFrontend {
 
@@ -93,6 +94,8 @@ object WebSocketFrontend {
               commandPL(Pipeline.Tell(handler, ev, receiverRef))
           }
           eventPL(ev)
+
+        case Tick =>
 
         case ev =>
           commandPL(Pipeline.Tell(handler, ev, receiverRef))
