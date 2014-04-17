@@ -23,8 +23,8 @@ libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.1-SNAPS
 ```
 
 ## Example
-The WebSocketConnection which could be extended to your WebSocketWorker by overriding businessLogic.
-Or, just write your own.
+Define your WebSocketWorker by extending WebSocketConnection and overriding method 'businessLogic'.
+Or, write your own WebSocketConnection.
 
 ```scala
 
