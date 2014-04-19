@@ -8,7 +8,6 @@ import akka.actor.Props
 import akka.io.{ IO, Tcp }
 import akka.pattern._
 import akka.testkit.TestProbe
-import akka.util.ByteString
 import com.typesafe.config.{ ConfigFactory, Config }
 import java.io.ByteArrayInputStream
 import org.scalatest.{ BeforeAndAfterAll, FunSuite }
@@ -19,9 +18,7 @@ import spray.can.Http
 import spray.can.client.ClientConnectionSettings
 import spray.can.server.{ ServerSettings, UHttp }
 import spray.can.websocket
-import spray.can.websocket.Send
-import spray.can.websocket.SendStream
-import spray.can.websocket.examples.MySslConfiguration
+import spray.can.websocket.{ Send, SendStream }
 import spray.can.websocket.frame.BinaryFrame
 import spray.can.websocket.frame.CloseFrame
 import spray.can.websocket.frame.Frame
