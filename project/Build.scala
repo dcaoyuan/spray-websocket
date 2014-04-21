@@ -2,6 +2,8 @@ import sbt._
 import sbt.Keys._
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+import com.typesafe.sbt.osgi.SbtOsgi._
+import com.typesafe.sbt.osgi.OsgiKeys._
 
 object Build extends sbt.Build {
 
@@ -12,6 +14,7 @@ object Build extends sbt.Build {
       libraryDependencies ++= Dependencies.all))
 
   def commonSettings = Defaults.defaultSettings ++
+    osgiSettings ++
     formatSettings ++
     Seq(
       organization := "com.wandoulabs",
@@ -19,6 +22,7 @@ object Build extends sbt.Build {
       scalaVersion := "2.10.3",
       scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
       publishMavenStyle := true,
+      exportPackage := Seq("spray.can.websocket.*"),
       resolvers ++= Seq(
         "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
         "spray" at "http://repo.spray.io",
