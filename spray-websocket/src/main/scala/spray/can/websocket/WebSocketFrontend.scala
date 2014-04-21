@@ -13,7 +13,8 @@ import akka.actor.Props
 import akka.io.Tcp
 import spray.can.server.ServerSettings
 import spray.can.server.UHttp
-import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame, Opcode }
+import spray.can.websocket.frame.FrameParser
+import spray.can.websocket.frame.{ FrameStream, Frame, CloseFrame, PingFrame, ContinuationFrame, Opcode, TextFrame, BinaryFrame }
 import spray.io.Pipeline
 import spray.io.PipelineContext
 import spray.io.Pipelines
@@ -21,6 +22,7 @@ import spray.io.RawPipelineStage
 import spray.can.client.ClientConnectionSettings
 import spray.can.Http
 import spray.http.HttpResponse
+import spray.io.TickGenerator.Tick
 
 object WebSocketFrontend {
 
@@ -32,7 +34,7 @@ object WebSocketFrontend {
        *
        *   HttpServerConnection(pipelines' owner) <-> receiverRef <-> handler
        *
-       *    ServerConnection
+       *   UHttpServerConnection
        *   +-------------------+  Frame Out     +---------+
        *   |                   | <-----------   |         |
        *   | WebSocketFrontend |                | Handler |
@@ -65,11 +67,39 @@ object WebSocketFrontend {
 
         case FrameInEvent(frame)                   => commandPL(Pipeline.Tell(handler, frame, receiverRef))
 
-        case ev @ UHttp.Upgraded                   => commandPL(Pipeline.Tell(handler, ev, receiverRef))
-        case ev: Tcp.ConnectionClosed              => commandPL(Pipeline.Tell(handler, ev, receiverRef))
+        case UHttp.Upgraded                        => commandPL(Pipeline.Tell(handler, UHttp.Upgraded, receiverRef))
         case Http.MessageEvent(resp: HttpResponse) => commandPL(Pipeline.Tell(handler, resp, receiverRef))
 
-        case ev                                    => eventPL(ev)
+        case ev: Tcp.ConnectionClosed =>
+          commandPL(Pipeline.Tell(handler, ev, receiverRef))
+          context.log.info("", ev) // TODO log.debug
+          eventPL(ev)
+
+        case ev @ Tcp.CommandFailed(e: Tcp.Write) =>
+          new FrameParser().onReceive(e.data.iterator) {
+            case FrameParser.Success(frame @ TextFrame(payload)) =>
+              context.log.warning("CommandFailed for Tcp.Write text frame: {} ...", payload.take(50).utf8String)
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case FrameParser.Success(frame @ BinaryFrame(payload)) =>
+              context.log.warning("CommandFailed for Tcp.Write binary frame: {} ...", payload.take(50))
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case FrameParser.Success(frame @ ContinuationFrame(payload)) =>
+              context.log.warning("CommandFailed for Tcp.Write continuation frame: {} ...", payload.take(50))
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case FrameParser.Success(frame) =>
+              context.log.warning("CommandFailed for Tcp.Write frame: {}", frame.opcode)
+              commandPL(Pipeline.Tell(handler, FrameCommandFailed(frame, ev), receiverRef))
+            case x =>
+              context.log.warning("CommandFailed for Tcp.Write: {} ...", e.data.take(50).utf8String)
+              commandPL(Pipeline.Tell(handler, ev, receiverRef))
+          }
+          eventPL(ev)
+
+        case Tick =>
+
+        case ev =>
+          commandPL(Pipeline.Tell(handler, ev, receiverRef))
+          eventPL(ev)
       }
 
       /**
