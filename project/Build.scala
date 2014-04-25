@@ -2,6 +2,8 @@ import sbt._
 import sbt.Keys._
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+import com.typesafe.sbt.osgi.SbtOsgi._
+import com.typesafe.sbt.osgi.OsgiKeys._
 
 object Build extends sbt.Build {
 
@@ -11,6 +13,11 @@ object Build extends sbt.Build {
     .settings(noPublishing: _*)
 
  lazy val websocket = Project("spray-websocket", file("spray-websocket"))
+    .settings(osgiSettings: _*)
+    .settings(
+      exportPackage := Seq("spray.can.websocket.*"),
+      privatePackage := Nil
+    )
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(releaseSettings: _*)
@@ -25,7 +32,8 @@ object Build extends sbt.Build {
     .settings(formatSettings: _*)
     .settings(exampleSettings: _*)
 
-  lazy val basicSettings = Seq(
+  lazy val basicSettings =
+    Seq(
       organization := "com.wandoulabs.akka",
       version := "0.1.1-SNAPSHOT",
       scalaVersion := "2.10.3",

@@ -1,4 +1,4 @@
-package spray.can.server.websocket
+package spray.can.websocket.server
 
 import akka.actor.Actor
 import akka.actor.ActorLogging
@@ -34,7 +34,6 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
 
   implicit val system = ActorSystem("UHttpTestSystem", testConf)
   implicit val timeout = akka.util.Timeout(5.seconds)
-  import system.dispatcher
 
   override def afterAll: Unit = system.shutdown()
 
