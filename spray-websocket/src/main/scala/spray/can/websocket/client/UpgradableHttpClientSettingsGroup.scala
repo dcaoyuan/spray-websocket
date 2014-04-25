@@ -5,7 +5,7 @@ import akka.actor.Props
 import spray.can.server.UpgradeSupport
 import spray.can.parsing.SSLSessionInfoSupport
 import spray.io.ConnectionTimeouts
-import spray.io.SslTlsSupportV2
+import spray.can.websocket.io.SslTlsSupportV2
 import spray.io.TickGenerator
 
 class UpgradableHttpClientSettingsGroup(settings: ClientConnectionSettings,
