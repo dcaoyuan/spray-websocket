@@ -1,6 +1,6 @@
 package spray.can.websocket.examples
 
-import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef }
+import akka.actor._
 import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
@@ -42,16 +42,28 @@ object SimpleServer extends App with MySslConfiguration {
 
       case x: HttpRequest => // do something
     }
+
+    override def businessLogicNoUpgrade: Receive = {
+      implicit val refFactory: ActorRefFactory = context
+      runRoute {
+        getFromResourceDirectory("webapp")
+      }
+    }
   }
 
-  implicit val system = ActorSystem()
-  import system.dispatcher
+  def doMain() {
+    implicit val system = ActorSystem()
+    import system.dispatcher
 
-  val server = system.actorOf(WebSocketServer.props(), "websocket")
+    val server = system.actorOf(WebSocketServer.props(), "websocket")
 
-  IO(UHttp) ! Http.Bind(server, "localhost", 8080)
+    IO(UHttp) ! Http.Bind(server, "localhost", 8080)
 
-  readLine("Hit ENTER to exit ...\n")
-  system.shutdown()
-  system.awaitTermination()
+    readLine("Hit ENTER to exit ...\n")
+    system.shutdown()
+    system.awaitTermination()
+  }
+
+  // because otherwise we get an ambiguous implicit if doMain is inlined
+  doMain()
 }
