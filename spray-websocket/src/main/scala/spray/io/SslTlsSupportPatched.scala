@@ -37,7 +37,7 @@ import SSLEngineResult.HandshakeStatus._
  * 2. keepOpenOnPeerClosed should always be enabled on the transport layer beneath SSL so that one can wait for
  *    the other side's SSL level close_notify message without barfing RST to the peer because this socket is already gone
  */
-object SslTlsSupportV2 {
+object SslTlsSupportPatched {
 
   def apply(maxEncryptionChunkSize: Int, publishSslSessionInfo: Boolean,
             tracing: Boolean = false): OptionalPipelineStage[SslTlsContext] =

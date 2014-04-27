@@ -5,7 +5,7 @@ import akka.actor.Props
 import spray.can.server.UpgradeSupport
 import spray.can.parsing.SSLSessionInfoSupport
 import spray.io.ConnectionTimeouts
-import spray.io.SslTlsSupportV2
+import spray.io.SslTlsSupportPatched
 import spray.io.TickGenerator
 
 class UpgradableHttpClientSettingsGroup(settings: ClientConnectionSettings,
@@ -48,7 +48,7 @@ private object UpgradableHttpClientConnection {
         RequestRendering(settings)
     } >>
       ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite) >>
-      SslTlsSupportV2(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) >>
+      SslTlsSupportPatched(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) >>
       TickGenerator(reapingCycle) ? (idleTimeout.isFinite || requestTimeout.isFinite)
   }
 }

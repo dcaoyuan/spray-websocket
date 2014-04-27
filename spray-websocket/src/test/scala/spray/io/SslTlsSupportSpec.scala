@@ -290,8 +290,10 @@ class SslTlsSupportSpec extends Specification with NoTimeConversions {
       serverSessions().foreach(_.invalidate())
     }
 
-    def inParallel(body1: ⇒ Unit, expr2: ⇒ String): String =
-      Future.sequence(List(Future(body1), Future(expr2))).await.apply(1).asInstanceOf[String]
+    def inParallel(body1: ⇒ Unit, expr2: ⇒ String): String = {
+      new spray.util.pimps.PimpedFuture(Future.sequence(List(Future(body1), Future(expr2)))).await(1.minute).apply(1).asInstanceOf[String]
+      // Future.sequence(List(Future(body1), Future(expr2))).await(1.minute).apply(1).asInstanceOf[String]
+    }
 
     def newJavaSslClientConnection(address: InetSocketAddress) =
       new JavaServerConnection(sslContext.getSocketFactory.createSocket(address.getHostName, address.getPort).asInstanceOf[SSLSocket])
@@ -374,7 +376,7 @@ class SslTlsSupportSpec extends Specification with NoTimeConversions {
     class ConnectionActor[T <: (PipelineContext ⇒ Option[SSLEngine])](events: ActorRef, connection: ActorRef,
                                                                       connected: Tcp.Connected)(implicit engineProvider: T) extends ConnectionHandler {
       context.watch(connection)
-      val pipeline = frontend >> SslTlsSupportV2(128, publishSslSessionInfo, sslTraceLogging)
+      val pipeline = frontend >> SslTlsSupportPatched(128, publishSslSessionInfo, sslTraceLogging)
       def receive = running(connection, pipeline, createSslTlsContext[T](connected))
       def frontend: PipelineStage = new PipelineStage {
         def apply(context: PipelineContext, commandPL: CPL, eventPL: EPL): Pipelines =

@@ -10,7 +10,7 @@ import spray.can.server.StatsSupport.StatsHolder
 import spray.io.BackPressureHandling
 import spray.io.ConnectionTimeouts
 import spray.io.PreventHalfClosedConnections
-import spray.io.SslTlsSupportV2
+import spray.io.SslTlsSupportPatched
 import spray.io.TickGenerator
 
 /**
@@ -62,11 +62,11 @@ private object UpgradableHttpListener {
         RemoteAddressHeaderSupport ? remoteAddressHeader >>
         SSLSessionInfoSupport ? parserSettings.sslSessionInfoHeader >>
         RequestParsing(settings) >>
-        ResponseRendering(settings)
+        ResponseRenderingPatched(settings)
     } >>
       ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite) >>
       PreventHalfClosedConnections(sslEncryption) >>
-      SslTlsSupportV2(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) ? sslEncryption >>
+      SslTlsSupportPatched(maxEncryptionChunkSize, parserSettings.sslSessionInfoHeader) ? sslEncryption >>
       TickGenerator(reapingCycle) ? (reapingCycle.isFinite && (idleTimeout.isFinite || requestTimeout.isFinite)) >>
       BackPressureHandling(backpressureSettings.get.noAckRate, backpressureSettings.get.readingLowWatermark) ? autoBackPressureEnabled
   }
