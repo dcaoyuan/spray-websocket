@@ -104,10 +104,10 @@ object Dependencies {
   val SPRAY_VERSION = "1.3.1"
   val AKKA_VERSION = "2.3.2"
 
-  val spray_can = "io.spray" % "spray-can" % SPRAY_VERSION withSources()
-  val spray_testkit = "io.spray" % "spray-testkit" % SPRAY_VERSION % "test" withSources()
-  val akka_actor = "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION withSources()
-  val akka_testkit = "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test" withSources()
+  val spray_can = "io.spray" % "spray-can" % SPRAY_VERSION 
+  val spray_testkit = "io.spray" % "spray-testkit" % SPRAY_VERSION % "test" 
+  val akka_actor = "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION 
+  val akka_testkit = "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test" 
   val scalatest = "org.scalatest" %% "scalatest" % "2.1.3" % "test"
   val specs2 = "org.specs2" %% "specs2" % "2.3.11" % "test"
 
