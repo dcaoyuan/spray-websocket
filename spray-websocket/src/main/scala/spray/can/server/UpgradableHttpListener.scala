@@ -62,7 +62,7 @@ private object UpgradableHttpListener {
         RemoteAddressHeaderSupport ? remoteAddressHeader >>
         SSLSessionInfoSupport ? parserSettings.sslSessionInfoHeader >>
         RequestParsing(settings) >>
-        ResponseRenderingPatched(settings)
+        ResponseRendering(settings)
     } >>
       ConnectionTimeouts(idleTimeout) ? (reapingCycle.isFinite && idleTimeout.isFinite) >>
       PreventHalfClosedConnections(sslEncryption) >>
