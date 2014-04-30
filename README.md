@@ -85,6 +85,11 @@ object SimpleServer extends App with MySslConfiguration {
 
 ```
 
+### Run the provided example
+
+* Build and run the project: `sbt 'project spray-websocket-examples-simple' run`
+* Open your browser: [http://localhost:8080/websocket.html](http://localhost:8080/websocket.html)
+
 ## Troubleshooting
 ### Limited JCE Policy
 

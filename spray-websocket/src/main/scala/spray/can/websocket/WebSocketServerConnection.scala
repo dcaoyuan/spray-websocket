@@ -8,14 +8,15 @@ import spray.can.server.UHttp
 import spray.can.websocket
 import spray.can.websocket.frame.Frame
 import spray.can.websocket.frame.FrameStream
+import spray.routing.HttpServiceActor
 
-trait WebSocketServerConnection extends Actor with ActorLogging {
+trait WebSocketServerConnection extends HttpServiceActor with ActorLogging {
   /**
    * The HttpServerConnection actor, which holds the pipelines
    */
   def serverConnection: ActorRef
 
-  def receive = handshaking orElse closeLogic
+  def receive = handshaking orElse businessLogicNoUpgrade orElse closeLogic
 
   def closeLogic: Receive = {
     case ev: Http.ConnectionClosed =>
@@ -39,6 +40,8 @@ trait WebSocketServerConnection extends Actor with ActorLogging {
   }
 
   def businessLogic: Receive
+
+  def businessLogicNoUpgrade: Receive = PartialFunction.empty
 
   def send(frame: Frame) {
     serverConnection ! FrameCommand(frame)

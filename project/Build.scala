@@ -113,12 +113,13 @@ object Dependencies {
   val AKKA_VERSION = "2.3.2"
 
   val spray_can = "io.spray" % "spray-can" % SPRAY_VERSION
+  val spray_routing = "io.spray" % "spray-routing" % SPRAY_VERSION
   val spray_testkit = "io.spray" % "spray-testkit" % SPRAY_VERSION % "test"
   val akka_actor = "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION
   val akka_testkit = "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test"
   val scalatest = "org.scalatest" %% "scalatest" % "2.1.3" % "test"
   val specs2 = "org.specs2" %% "specs2" % "2.3.11" % "test"
 
-  val all = Seq(spray_can, akka_actor, scalatest, akka_testkit, specs2, spray_testkit)
+  val all = Seq(spray_can, spray_routing, akka_actor, scalatest, akka_testkit, specs2, spray_testkit)
 
 }
