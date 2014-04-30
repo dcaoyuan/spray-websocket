@@ -7,10 +7,10 @@ import spray.can.Http
 import spray.can.HttpExt
 import spray.can.parsing.SSLSessionInfoSupport
 import spray.can.server.StatsSupport.StatsHolder
+import spray.can.websocket.io.SslTlsSupportPatched
 import spray.io.BackPressureHandling
 import spray.io.ConnectionTimeouts
 import spray.io.PreventHalfClosedConnections
-import spray.io.SslTlsSupportPatched
 import spray.io.TickGenerator
 
 /**

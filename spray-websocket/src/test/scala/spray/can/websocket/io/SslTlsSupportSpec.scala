@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package spray.io
+package spray.can.websocket.io
 
 import java.io.{ BufferedWriter, OutputStreamWriter, InputStreamReader, BufferedReader }
 import javax.net.ssl._
@@ -32,6 +32,7 @@ import akka.util.{ ByteString, Timeout }
 import akka.io.{ IO, Tcp }
 import spray.testkit.TestUtils
 import spray.util._
+import spray.io._
 
 class SslTlsSupportSpec extends Specification with NoTimeConversions {
 
