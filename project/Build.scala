@@ -12,12 +12,11 @@ object Build extends sbt.Build {
     .settings(basicSettings: _*)
     .settings(noPublishing: _*)
 
- lazy val websocket = Project("spray-websocket", file("spray-websocket"))
+  lazy val websocket = Project("spray-websocket", file("spray-websocket"))
     .settings(osgiSettings: _*)
     .settings(
       exportPackage := Seq("spray.can.*"),
-      privatePackage := Nil
-    )
+      privatePackage := Nil)
     .settings(basicSettings: _*)
     .settings(formatSettings: _*)
     .settings(releaseSettings: _*)
@@ -32,66 +31,61 @@ object Build extends sbt.Build {
     .settings(formatSettings: _*)
     .settings(exampleSettings: _*)
 
-  lazy val basicSettings =
-    Seq(
-      organization := "com.wandoulabs.akka",
-      version := "0.1.1-SNAPSHOT",
-      scalaVersion := "2.10.3",
-      scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
-      resolvers ++= Seq(
-        "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
-        "spray" at "http://repo.spray.io",
-        "spray nightly" at "http://nightlies.spray.io/")
-    )
+  lazy val basicSettings = Seq(
+    organization := "com.wandoulabs.akka",
+    version := "0.1.1-SNAPSHOT",
+    scalaVersion := "2.10.3",
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
+    resolvers ++= Seq(
+      "typesafe repo" at "http://repo.typesafe.com/typesafe/releases/",
+      "spray" at "http://repo.spray.io",
+      "spray nightly" at "http://nightlies.spray.io/"))
 
   lazy val exampleSettings = basicSettings ++ noPublishing
 
   lazy val releaseSettings = Seq(
-      publishTo := {
-        val nexus = "https://oss.sonatype.org/"
-        if (version.value.trim.endsWith("SNAPSHOT"))
-          Some("snapshots" at nexus + "content/repositories/snapshots")
-        else
-          Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-      },
-      publishMavenStyle := true,
-      publishArtifact in Test := false,
-      pomIncludeRepository := { (repo: MavenRepository) => false },
-      pomExtra := (
-        <url>https://github.com/wandoulabs/spray-websocket</url>
-        <licenses>
-          <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-            <distribution>repo</distribution>
-          </license>
-        </licenses>
-        <scm>
-          <url>git@github.com:wandoulabs/spray-websocket.git</url>
-          <connection>scm:git:git@github.com:wandoulabs/spray-websocket.git</connection>
-        </scm>
-        <developers>
-          <developer>
-            <id>dcaoyuan</id>
-            <name>Caoyuan DENG</name>
-            <email>dcaoyuan@gmail.com</email>
-          </developer>
-          <developer>
-            <id>cowboy129</id>
-            <name>Xingrun CHEN</name>
-            <email>cowboy129@gmail.com</email>
-          </developer>
-        </developers>
-        )
-    )
+    publishTo := {
+      val nexus = "https://oss.sonatype.org/"
+      if (version.value.trim.endsWith("SNAPSHOT"))
+        Some("snapshots" at nexus + "content/repositories/snapshots")
+      else
+        Some("releases" at nexus + "service/local/staging/deploy/maven2")
+    },
+    publishMavenStyle := true,
+    publishArtifact in Test := false,
+    pomIncludeRepository := { (repo: MavenRepository) => false },
+    pomExtra := (
+      <url>https://github.com/wandoulabs/spray-websocket</url>
+      <licenses>
+        <license>
+          <name>The Apache Software License, Version 2.0</name>
+          <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+          <distribution>repo</distribution>
+        </license>
+      </licenses>
+      <scm>
+        <url>git@github.com:wandoulabs/spray-websocket.git</url>
+        <connection>scm:git:git@github.com:wandoulabs/spray-websocket.git</connection>
+      </scm>
+      <developers>
+        <developer>
+          <id>dcaoyuan</id>
+          <name>Caoyuan DENG</name>
+          <email>dcaoyuan@gmail.com</email>
+        </developer>
+        <developer>
+          <id>cowboy129</id>
+          <name>Xingrun CHEN</name>
+          <email>cowboy129@gmail.com</email>
+        </developer>
+      </developers>))
 
   lazy val noPublishing = Seq(
     publish := (),
     publishLocal := (),
     // required until these tickets are closed https://github.com/sbt/sbt-pgp/issues/42,
     // https://github.com/sbt/sbt-pgp/issues/36
-    publishTo := None
-  )
+    publishTo := None)
 
   lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     ScalariformKeys.preferences in Compile := formattingPreferences,
@@ -105,7 +99,7 @@ object Build extends sbt.Build {
       .setPreference(AlignSingleLineCaseStatements, true)
       .setPreference(DoubleIndentClassDeclaration, true)
       .setPreference(IndentSpaces, 2)
-  
+
 }
 
 object Dependencies {
