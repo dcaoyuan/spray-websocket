@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package spray.io
+package spray.can.websocket.io
 
 import java.nio.ByteBuffer
 import javax.net.ssl.{ SSLException, SSLEngineResult }
@@ -25,6 +25,8 @@ import spray.http.HttpData
 import spray.util._
 import SSLEngineResult.Status._
 import SSLEngineResult.HandshakeStatus._
+import spray.io._
+import scala.Some
 
 /**
  * A pipeline stage that provides SSL support.

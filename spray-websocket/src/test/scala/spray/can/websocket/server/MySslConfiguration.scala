@@ -1,4 +1,4 @@
-package spray.can.server.websocket
+package spray.can.websocket.server
 
 import java.security.{ SecureRandom, KeyStore }
 import javax.net.ssl.{ KeyManagerFactory, SSLContext, TrustManagerFactory }
