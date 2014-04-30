@@ -1,6 +1,6 @@
 package spray.can.websocket.examples
 
-import akka.actor._
+import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef }
 import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
@@ -8,6 +8,7 @@ import spray.can.websocket
 import spray.can.websocket.frame.{ BinaryFrame, TextFrame }
 import spray.http.HttpRequest
 import spray.can.websocket.FrameCommandFailed
+import spray.routing.HttpServiceActor
 
 object SimpleServer extends App with MySslConfiguration {
 
@@ -29,7 +30,9 @@ object SimpleServer extends App with MySslConfiguration {
   object WebSocketWorker {
     def props(serverConnection: ActorRef) = Props(classOf[WebSocketWorker], serverConnection)
   }
-  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection with HttpServiceActor {
+    override def receive = handshaking orElse businessLogicNoUpgrade orElse closeLogic
+
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
@@ -43,7 +46,7 @@ object SimpleServer extends App with MySslConfiguration {
       case x: HttpRequest => // do something
     }
 
-    override def businessLogicNoUpgrade: Receive = {
+    def businessLogicNoUpgrade: Receive = {
       implicit val refFactory: ActorRefFactory = context
       runRoute {
         getFromResourceDirectory("webapp")

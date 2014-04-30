@@ -37,6 +37,8 @@ import spray.can.server.UHttp
 import spray.can.websocket
 import spray.can.websocket.frame.{ BinaryFrame, TextFrame }
 import spray.http.HttpRequest
+import spray.can.websocket.FrameCommandFailed
+import spray.routing.HttpServiceActor
 
 object SimpleServer extends App with MySslConfiguration {
 
@@ -58,30 +60,46 @@ object SimpleServer extends App with MySslConfiguration {
   object WebSocketWorker {
     def props(serverConnection: ActorRef) = Props(classOf[WebSocketWorker], serverConnection)
   }
-  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends websocket.WebSocketServerConnection with HttpServiceActor {
+    override def receive = handshaking orElse businessLogicNoUpgrade orElse closeLogic
+
     def businessLogic: Receive = {
       // just bounce frames back for Autobahn testsuite
       case x @ (_: BinaryFrame | _: TextFrame) =>
         sender() ! x
 
-      case Push(msg)      => send(TextFrame(msg))
+      case Push(msg) => send(TextFrame(msg))
+
+      case x: FrameCommandFailed =>
+        log.error("frame command failed", x)
 
       case x: HttpRequest => // do something
     }
+
+    def businessLogicNoUpgrade: Receive = {
+      implicit val refFactory: ActorRefFactory = context
+      runRoute {
+        getFromResourceDirectory("webapp")
+      }
+    }
   }
 
-  implicit val system = ActorSystem()
-  import system.dispatcher
+  def doMain() {
+    implicit val system = ActorSystem()
+    import system.dispatcher
 
-  val server = system.actorOf(WebSocketServer.props(), "websocket")
+    val server = system.actorOf(WebSocketServer.props(), "websocket")
 
-  IO(UHttp) ! Http.Bind(server, "localhost", 8080)
+    IO(UHttp) ! Http.Bind(server, "localhost", 8080)
 
-  readLine("Hit ENTER to exit ...\n")
-  system.shutdown()
-  system.awaitTermination()
+    readLine("Hit ENTER to exit ...\n")
+    system.shutdown()
+    system.awaitTermination()
+  }
+
+  // because otherwise we get an ambiguous implicit if doMain is inlined
+  doMain()
 }
-
 
 ```
 
