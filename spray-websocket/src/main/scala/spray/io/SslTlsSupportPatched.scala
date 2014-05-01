@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package spray.can.websocket.io
+package spray.io
 
 import java.nio.ByteBuffer
 import javax.net.ssl.{ SSLException, SSLEngineResult }
