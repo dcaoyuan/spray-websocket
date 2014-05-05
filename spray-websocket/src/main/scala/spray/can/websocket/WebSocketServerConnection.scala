@@ -36,7 +36,7 @@ trait WebSocketServerConnection extends ActorLogging { _: Actor =>
     // upgraded successfully
     case UHttp.Upgraded =>
       context.become(businessLogic orElse closeLogic)
-      self ! UHttp.Upgraded
+      self ! websocket.Upgraded // notify Upgraded to WebSocket protocol
   }
 
   def businessLogic: Receive
