@@ -13,7 +13,7 @@ object Build extends sbt.Build {
     .settings(noPublishing: _*)
 
   lazy val websocket = Project("spray-websocket", file("spray-websocket"))
-    .settings(osgiSettings: _*)
+    .settings(defaultOsgiSettings: _*)
     .settings(
       exportPackage := Seq("spray.*"),
       privatePackage := Nil)
