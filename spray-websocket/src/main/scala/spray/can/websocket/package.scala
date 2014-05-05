@@ -38,7 +38,7 @@ package object websocket {
   final case class Send(frame: Frame)
   final case class SendStream(frame: FrameStream)
 
-  case object Upgraded
+  case object UpgradedToWebSocket
 
   /**
    * pipeline stage of websocket

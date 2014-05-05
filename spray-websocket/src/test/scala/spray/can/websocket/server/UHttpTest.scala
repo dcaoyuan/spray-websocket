@@ -18,7 +18,7 @@ import spray.can.Http
 import spray.can.client.ClientConnectionSettings
 import spray.can.server.{ ServerSettings, UHttp }
 import spray.can.websocket
-import spray.can.websocket.{ Send, SendStream }
+import spray.can.websocket.{ Send, SendStream, UpgradedToWebSocket }
 import spray.can.websocket.frame.BinaryFrame
 import spray.can.websocket.frame.CloseFrame
 import spray.can.websocket.frame.Frame
@@ -69,6 +69,9 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       case x: Tcp.ConnectionClosed =>
         log.info("Server Close")
 
+      case UpgradedToWebSocket =>
+        log.info("Server Upgraded to WebSocket")
+
       case x => log.error("Server Unknown " + x)
     }
   }
@@ -90,6 +93,9 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
       case frame: Frame =>
         log.info("Client Frame received:" + frame)
         commander ! frame
+
+      case UpgradedToWebSocket =>
+        log.info("Client Upgraded to WebSocket")
 
       case "upgraded?" => sender() ! true
     }

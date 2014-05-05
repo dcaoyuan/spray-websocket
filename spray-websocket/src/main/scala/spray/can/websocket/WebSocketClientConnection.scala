@@ -45,6 +45,7 @@ trait WebSocketClientConnection extends ActorLogging with Stash { _: Actor =>
       _connection = sender()
       context.become(businessLogic orElse closeLogic)
       unstashAll()
+      self ! websocket.UpgradedToWebSocket // notify Upgraded to WebSocket protocol, should send to self after unstashAll
 
     case Http.CommandFailed(con: Connect) =>
       log.warning("failed to connect to {}", con.remoteAddress)
