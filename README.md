@@ -16,10 +16,16 @@ WebSocket for spray-can
 ## Usage
 The artifact is published to Sonatype, so in order to use it you just have to add the following dependency:
 
+### Stable
+```scala
+libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.1-RC1"
+```
+
+### Snapshot
 ```scala
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.1-SNAPSHOT"
+libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.2-SNAPSHOT"
 ```
 
 ## Example
