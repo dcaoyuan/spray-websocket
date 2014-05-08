@@ -72,7 +72,7 @@ object WebSocketFrontend {
 
         case ev: Tcp.ConnectionClosed =>
           commandPL(Pipeline.Tell(handler, ev, receiverRef))
-          context.log.info("", ev) // TODO log.debug
+          context.log.debug("Connection closed" + ev)
           eventPL(ev)
 
         case ev @ Tcp.CommandFailed(e: Tcp.Write) =>
