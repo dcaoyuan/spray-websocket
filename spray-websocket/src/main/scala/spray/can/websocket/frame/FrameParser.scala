@@ -95,13 +95,13 @@ final class FrameParser {
     }
   }
 
-  def onReceive(newInput: ByteIterator)(stateListener: PartialFunction[State, Unit]) {
+  def onReceive(newInput: ByteIterator)(emit: PartialFunction[State, Unit]) {
     input = concat(input, newInput)
-    process()(stateListener)
+    process()(emit)
   }
 
   @tailrec
-  private def process()(stateListener: PartialFunction[State, Unit]) {
+  private def process()(emit: PartialFunction[State, Unit]) {
     // has enough data? if false, wait for more input
     if (input.len < state.nBytes) {
       return
@@ -115,15 +115,15 @@ final class FrameParser {
       case x: Failure => // with error, should drop remaining input
         input = ByteString.empty.iterator
         state = ExpectFin
-        stateListener(x)
+        emit(x)
 
       case x: Success =>
         state = ExpectFin
-        stateListener(x)
+        emit(x)
 
       case ExpectData(0) => // should finish a frame right now too.
         state = ExpectFin
-        stateListener(Success(Frame(finRsvOp, ByteString.empty)))
+        emit(Success(Frame(finRsvOp, ByteString.empty)))
 
       case x =>
         state = x
@@ -131,7 +131,7 @@ final class FrameParser {
 
     // has more data? go on if true, else wait for more input
     if (input.hasNext) {
-      process()(stateListener)
+      process()(emit)
     }
   }
 
