@@ -175,7 +175,7 @@ package object websocket {
           val protocols = collector.protocal
           val extentions = collector.extensions
 
-          val pcme = enabledPCMEs.find(extentions.contains(_)).map { name => PMCE(name, extentions(name)) }.flatten
+          val pcme = enabledPCMEs.find(extentions.contains(_)).map(name => PMCE(name, extentions(name))).flatten
           //if (x.client_max_window_bits == WBITS_NOT_SET) {
           //Some(HandshakeContext(null, key, protocols, extentions, pcme))
           //} else { // does not support server_max_window_bits yet
