@@ -8,6 +8,8 @@ import spray.http.HttpHeaders
 
 object PermessageDeflate {
 
+  val name = "permessage-deflate"
+
   // zlib defalte parameters. TODO can only be supported in zlib(org.jcraft.jzlib) not in java.util.zip
   val WINDOW_SIZE_PERMISSIBLE_VALUES = Set(8, 9, 10, 11, 12, 13, 14, 15)
   val DEFAULT_WBITS = 15
@@ -64,16 +66,14 @@ final case class PermessageDeflate(
     client_max_window_bits: Int = PermessageDeflate.WBITS_NOT_SET,
     mem_level: Int = PermessageDeflate.DEFAULT_MEM_LEVEL) extends PMCE {
 
-  import PermessageDeflate._
-
   private var _encoder: Deflater = _
   private var _decoder: Inflater = _
 
-  def name = "permessage-deflate"
+  def name = PermessageDeflate.name
 
-  def extensionHeader = HttpHeaders.RawHeader("Sec-WebSocket-Extensions", (
-    name
-    + (if (server_no_context_takeover) "; " + SERVER_MAX_WINDOW_BITS else "")))
+  def extensionHeader = HttpHeaders.RawHeader(
+    "Sec-WebSocket-Extensions",
+    name + (if (server_no_context_takeover) "; " + PermessageDeflate.SERVER_MAX_WINDOW_BITS else ""))
 
   private def getOrResetEncoder = {
     if (isServer) {
@@ -121,13 +121,13 @@ final case class PermessageDeflate(
     val uncompressed = input.toArray
     if (!encoder.finished) {
       encoder.setInput(uncompressed, 0, uncompressed.length)
-      val compressed = Array.ofDim[Byte](uncompressed.length + OVERHEAD)
+      val compressed = Array.ofDim[Byte](uncompressed.length + PermessageDeflate.OVERHEAD)
       while (!encoder.needsInput) {
         val len = encoder.deflate(compressed, 0, compressed.length, Deflater.SYNC_FLUSH) match {
           case len if len > 0 =>
             val dataLen = if (len > 4 && findSpecTail(compressed)) len - 4 else len
             accumulator.putBytes(compressed, 0, dataLen)
-            if (BFINAL_HACK) {
+            if (PermessageDeflate.BFINAL_HACK) {
               /**
                * Per the spec, it says that BFINAL 1 or 0 are allowed.
                * However, Java always uses BFINAL 1, whereas the browsers Chromium and Safari fail to decompress when it encounters BFINAL 1.
@@ -151,9 +151,9 @@ final case class PermessageDeflate(
 
     val inlen = input.length
     val compressed = if (isFin) {
-      val xs = Array.ofDim[Byte](inlen + TAIL.length)
+      val xs = Array.ofDim[Byte](inlen + PermessageDeflate.TAIL.length)
       input.copyToArray(xs, 0, inlen)
-      System.arraycopy(TAIL, 0, xs, inlen, TAIL.length)
+      System.arraycopy(PermessageDeflate.TAIL, 0, xs, inlen, PermessageDeflate.TAIL.length)
       xs
     } else {
       val xs = Array.ofDim[Byte](inlen)
@@ -191,8 +191,8 @@ final case class PermessageDeflate(
     var idx = len - 4
     var found = true
     var i = 0
-    while (i < TAIL.length && !found) {
-      if (data(idx + i) != TAIL(i)) {
+    while (i < PermessageDeflate.TAIL.length && !found) {
+      if (data(idx + i) != PermessageDeflate.TAIL(i)) {
         found = false
       }
       i += 1

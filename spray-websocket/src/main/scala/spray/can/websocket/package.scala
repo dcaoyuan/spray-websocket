@@ -2,12 +2,13 @@ package spray.can
 
 import akka.actor.ActorRef
 import akka.io.Tcp
+import com.typesafe.config.ConfigFactory
 import java.security.MessageDigest
+import scala.collection.JavaConversions._
 import scala.util.Random
 import spray.can.client.ClientConnectionSettings
 import spray.can.server.ServerSettings
 import spray.can.websocket.compress.PMCE
-import spray.can.websocket.compress.PermessageDeflate
 import spray.can.websocket.frame.{ FrameStream, Frame }
 import spray.http.HttpEntity
 import spray.http.HttpHeader
@@ -21,6 +22,9 @@ import spray.http.HttpResponse
 import spray.http.StatusCodes
 
 package object websocket {
+
+  val config = ConfigFactory.load().getConfig("spray.websocket")
+  val enabledPCMEs = config.getStringList("pmce")
 
   /**
    * Wraps a frame in a Event going up through the event pipeline
@@ -171,15 +175,13 @@ package object websocket {
           val protocols = collector.protocal
           val extentions = collector.extensions
 
-          extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
-            case Some(pcme) =>
-              //if (x.client_max_window_bits == WBITS_NOT_SET) {
-              Some(HandshakeContext(req, key, protocols, extentions, Some(pcme)))
-            //} else { // does not support server_max_window_bits yet
-            //  Some(HandshakeFailure(protocols, extentions))
-            //}
-            case None => Some(HandshakeContext(req, key, protocols, extentions, None))
-          }
+          val pcme = enabledPCMEs.find(extentions.contains(_)).map { name => PMCE(name, extentions(name)) }.flatten
+          //if (x.client_max_window_bits == WBITS_NOT_SET) {
+          //Some(HandshakeContext(null, key, protocols, extentions, pcme))
+          //} else { // does not support server_max_window_bits yet
+          //  Some(HandshakeFailure(protocols, extentions))
+          //}
+          Some(HandshakeContext(req, key, protocols, extentions, pcme))
         }
         case _ => None
       }
@@ -201,15 +203,13 @@ package object websocket {
           val protocols = collector.protocal
           val extentions = collector.extensions
 
-          extentions.get("permessage-deflate").map(PermessageDeflate(_)) match {
-            case Some(pcme) =>
-              //if (x.client_max_window_bits == WBITS_NOT_SET) {
-              Some(HandshakeContext(null, key, protocols, extentions, Some(pcme)))
-            //} else { // does not support server_max_window_bits yet
-            //  Some(HandshakeFailure(protocols, extentions))
-            //}
-            case None => Some(HandshakeContext(null, key, protocols, extentions, None))
-          }
+          val pcme = enabledPCMEs.find(extentions.contains(_)).map(name => PMCE(name, extentions(name))).flatten
+          //if (x.client_max_window_bits == WBITS_NOT_SET) {
+          //Some(HandshakeContext(null, key, protocols, extentions, pcme))
+          //} else { // does not support server_max_window_bits yet
+          //  Some(HandshakeFailure(protocols, extentions))
+          //}
+          Some(HandshakeContext(null, key, protocols, extentions, pcme))
         }
         case _ => None
       }

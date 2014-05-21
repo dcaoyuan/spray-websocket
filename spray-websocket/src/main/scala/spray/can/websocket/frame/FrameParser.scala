@@ -134,7 +134,7 @@ final class FrameParser {
       process()(emit)
     }
   }
-  
+
   private def parse(input: ByteIterator, state: State): State = state match {
     case ExpectFin =>
       finRsvOp = input.next()
@@ -199,5 +199,5 @@ final class FrameParser {
       }
     }
   }
-  
+
 }
