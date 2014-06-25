@@ -33,7 +33,7 @@ object Build extends sbt.Build {
 
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.akka",
-    version := "0.1.2-SNAPSHOT",
+    version := "0.1.2-RC1",
     scalaVersion := "2.10.3",
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
     resolvers ++= Seq(
