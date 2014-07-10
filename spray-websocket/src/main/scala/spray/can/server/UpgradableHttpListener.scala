@@ -60,6 +60,7 @@ private object UpgradableHttpListener {
         PipeliningLimiter(pipeliningLimit) ? (pipeliningLimit > 0) >>
         StatsSupport(statsHolder.get) ? statsSupport >>
         RemoteAddressHeaderSupport ? remoteAddressHeader >>
+        RemoteIpPortHeaderSupport ? remoteAddressHeader >>
         SSLSessionInfoSupport ? parserSettings.sslSessionInfoHeader >>
         RequestParsing(settings) >>
         ResponseRendering(settings)
