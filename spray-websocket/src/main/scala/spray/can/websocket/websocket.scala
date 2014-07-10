@@ -2,6 +2,7 @@ package spray.can
 
 import akka.actor.ActorRef
 import akka.io.Tcp
+import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import java.security.MessageDigest
 import scala.collection.JavaConversions._
@@ -25,6 +26,7 @@ package object websocket {
 
   val config = ConfigFactory.load().getConfig("spray.websocket")
   val enabledPCMEs = config.getStringList("pmce")
+  val enabledUTF8Validate = config.getBoolean("enable-utf8validate")
 
   /**
    * Wraps a frame in a Event going up through the event pipeline

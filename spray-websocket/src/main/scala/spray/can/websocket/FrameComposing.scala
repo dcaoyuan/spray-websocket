@@ -1,5 +1,6 @@
 package spray.can.websocket
 
+import spray.can.websocket
 import spray.can.websocket.frame.StatusCode
 import spray.can.websocket.frame.CloseFrame
 import spray.can.websocket.frame.DataFrame
@@ -54,7 +55,7 @@ object FrameComposing {
                 }
 
                 payload1 foreach { payload =>
-                  if (finFrame.opcode == Opcode.Text && UTF8Validator.isInvalid(payload)) {
+                  if (finFrame.opcode == Opcode.Text && websocket.enabledUTF8Validate && UTF8Validator.isInvalid(payload)) {
                     closeWithReason(StatusCode.InvalidPayload, "non-UTF-8 [RFC3629] data within a text message.")
                   } else {
                     eventPL(FrameInEvent(finFrame.copy(fin = true, rsv1 = false, payload = payload)))
