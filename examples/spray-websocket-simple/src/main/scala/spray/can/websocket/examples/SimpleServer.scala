@@ -30,7 +30,7 @@ object SimpleServer extends App with MySslConfiguration {
   object WebSocketWorker {
     def props(serverConnection: ActorRef) = Props(classOf[WebSocketWorker], serverConnection)
   }
-  class WebSocketWorker(val serverConnection: ActorRef) extends HttpServiceActor with websocket.WebSocketServerConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends HttpServiceActor with websocket.WebSocketServerWorker {
     override def receive = handshaking orElse businessLogicNoUpgrade orElse closeLogic
 
     def businessLogic: Receive = {

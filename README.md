@@ -36,7 +36,7 @@ Or, write your own WebSocketConnection.
 
 package spray.can.websocket.examples
 
-import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef }
+import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef, ActorRefFactory }
 import akka.io.IO
 import spray.can.Http
 import spray.can.server.UHttp
@@ -66,7 +66,7 @@ object SimpleServer extends App with MySslConfiguration {
   object WebSocketWorker {
     def props(serverConnection: ActorRef) = Props(classOf[WebSocketWorker], serverConnection)
   }
-  class WebSocketWorker(val serverConnection: ActorRef) extends HttpServiceActor with websocket.WebSocketServerConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends HttpServiceActor with websocket.WebSocketServerWorker {
     override def receive = handshaking orElse businessLogicNoUpgrade orElse closeLogic
 
     def businessLogic: Receive = {

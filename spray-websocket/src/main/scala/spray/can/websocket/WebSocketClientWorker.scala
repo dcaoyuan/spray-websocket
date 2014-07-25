@@ -8,7 +8,7 @@ import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.can.Http.Connect
 
-trait WebSocketClientConnection extends ActorLogging with Stash { _: Actor =>
+trait WebSocketClientWorker extends ActorLogging with Stash { _: Actor =>
   def upgradeRequest: HttpRequest
 
   private var _connection: ActorRef = _

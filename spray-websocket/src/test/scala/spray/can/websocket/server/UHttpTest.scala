@@ -47,7 +47,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     }
   }
 
-  class WebSocketWorker(val serverConnection: ActorRef) extends Actor with websocket.WebSocketServerConnection {
+  class WebSocketWorker(val serverConnection: ActorRef) extends Actor with websocket.WebSocketServerWorker {
 
     def businessLogic: Receive = {
       case x: BinaryFrame =>
@@ -76,7 +76,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     }
   }
 
-  class WebsocketClient(val upgradeRequest: HttpRequest) extends websocket.WebSocketClientConnection {
+  class WebsocketClient(val upgradeRequest: HttpRequest) extends websocket.WebSocketClientWorker {
     var commander: ActorRef = null
 
     def businessLogic: Receive = {

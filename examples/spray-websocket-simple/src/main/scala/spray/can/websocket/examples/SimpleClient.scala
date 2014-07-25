@@ -15,7 +15,7 @@ import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
  */
 object SimpleClient extends App with MySslConfiguration {
 
-  abstract class WebSocketClient(connect: Http.Connect, val upgradeRequest: HttpRequest) extends websocket.WebSocketClientConnection {
+  abstract class WebSocketClient(connect: Http.Connect, val upgradeRequest: HttpRequest) extends websocket.WebSocketClientWorker {
     IO(UHttp) ! connect
 
     def businessLogic: Receive = {
