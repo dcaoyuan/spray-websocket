@@ -2,11 +2,10 @@ package spray.can
 
 import akka.actor.ActorRef
 import akka.io.Tcp
-import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
 import java.security.MessageDigest
 import scala.collection.JavaConversions._
-import scala.util.Random
+import scala.concurrent.forkjoin.ThreadLocalRandom
 import spray.can.client.ClientConnectionSettings
 import spray.can.server.ServerSettings
 import spray.can.websocket.compress.PMCE
@@ -65,7 +64,7 @@ package object websocket {
 
   def defaultMaskGen(): Array[Byte] = {
     val mask = Array.fill[Byte](4)(0)
-    Random.nextBytes(mask)
+    ThreadLocalRandom.current.nextBytes(mask)
     mask
   }
 

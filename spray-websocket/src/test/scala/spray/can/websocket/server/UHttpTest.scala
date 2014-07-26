@@ -14,6 +14,7 @@ import org.scalatest.{ BeforeAndAfterAll, FunSuite }
 import org.scalatest.concurrent.Eventually
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.forkjoin.ThreadLocalRandom
 import spray.can.Http
 import spray.can.client.ClientConnectionSettings
 import spray.can.server.{ ServerSettings, UHttp }
@@ -117,7 +118,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
     client
   }
 
-  def randomPort() = 1000 + util.Random.nextInt(10000)
+  def randomPort() = 1000 + ThreadLocalRandom.current.nextInt(10000)
 
   def runTest(req: HttpRequest)(test: ActorRef => Unit) {
     test(setupConnection(randomPort(), req, ssl = false))
