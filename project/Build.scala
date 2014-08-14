@@ -33,7 +33,7 @@ object Build extends sbt.Build {
 
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.akka",
-    version := "0.1.3-SNAPSHOT",
+    version := "0.1.3-RC1",
     scalaVersion := "2.10.4",
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
     resolvers ++= Seq(
@@ -104,7 +104,7 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SPRAY_VERSION = "1.3.2-20140428"
-  val AKKA_VERSION = "2.3.4"
+  val AKKA_VERSION = "2.3.5"
 
   val spray_can = "io.spray" % "spray-can" % SPRAY_VERSION
   val spray_routing = "io.spray" % "spray-routing" % SPRAY_VERSION
