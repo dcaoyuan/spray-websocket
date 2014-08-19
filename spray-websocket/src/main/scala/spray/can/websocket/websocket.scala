@@ -99,28 +99,37 @@ package object websocket {
     }
 
     def parseHeaders(headers: List[HttpHeader]): Option[Collector] = {
-      val collector = headers.foldLeft(new Collector) { (acc, header) =>
-        header match {
-          case Connection(connection) =>
-            acc.connection :::= connection.toList.map(_.trim).map(_.toLowerCase)
-            if (!acc.connection.contains("upgrade")) {
-              return None
-            }
-          case RawHeader(name, upgrate) if name.toLowerCase == "upgrade" =>
-            acc.upgrade :::= upgrate.split(',').toList.map(_.trim).map(_.toLowerCase)
-            if (!acc.upgrade.contains("websocket")) {
-              return None
-            }
-          case RawHeader(name, version) if name.toLowerCase == "sec-websocket-version" => acc.version = version // TODO negotiation
-          case RawHeader(name, key) if name.toLowerCase == "sec-websocket-key" => acc.key = key
-          case RawHeader(name, accept) if name.toLowerCase == "sec-websocket-accept" => acc.accept = accept
-          case RawHeader(name, protocal) if name.toLowerCase == "sec-websocket-protocal" => acc.protocal :::= protocal.split(',').toList.map(_.trim)
-          case RawHeader(name, extensions) if name.toLowerCase == "sec-websocket-extensions" => acc.extensions ++= parseExtensions(extensions)
-          case _ =>
-        }
-        acc
+      val collector = headers.foldLeft(new Collector) {
+        case (acc, Connection(connection)) =>
+          acc.connection :::= connection.toList.map(_.trim).map(_.toLowerCase)
+          acc
+        case (acc, HttpHeader("upgrade", updade)) =>
+          acc.upgrade :::= updade.split(',').toList.map(_.trim).map(_.toLowerCase)
+          acc
+        case (acc, HttpHeader("sec-websocket-version", version)) =>
+          acc.version = version // TODO negotiation
+          acc
+        case (acc, HttpHeader("sec-websocket-key", key)) =>
+          acc.key = key
+          acc
+        case (acc, HttpHeader("sec-websocket-accept", accept)) =>
+          acc.accept = accept
+          acc
+        case (acc, HttpHeader("sec-websocket-protocal", protocal)) =>
+          acc.protocal :::= protocal.split(',').toList.map(_.trim)
+          acc
+        case (acc, HttpHeader("sec-websocket-extensions", extensions)) =>
+          acc.extensions ++= parseExtensions(extensions)
+          acc
+        case (acc, _) =>
+          acc
       }
-      Some(collector)
+
+      if (collector.upgrade.contains("websocket") && collector.connection.contains("upgrade")) {
+        Some(collector)
+      } else {
+        None
+      }
     }
 
     def parseExtensions(extensions: String, removeQuotes: Boolean = true) = {
