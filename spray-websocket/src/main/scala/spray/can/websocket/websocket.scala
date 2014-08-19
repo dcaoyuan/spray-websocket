@@ -106,16 +106,16 @@ package object websocket {
             if (!acc.connection.contains("upgrade")) {
               return None
             }
-          case RawHeader("Upgrade", upgrate) =>
+          case RawHeader(name, upgrate) if name.toLowerCase == "upgrade" =>
             acc.upgrade :::= upgrate.split(',').toList.map(_.trim).map(_.toLowerCase)
             if (!acc.upgrade.contains("websocket")) {
               return None
             }
-          case RawHeader("Sec-WebSocket-Version", version) => acc.version = version // TODO negotiation
-          case RawHeader("Sec-WebSocket-Key", key) => acc.key = key
-          case RawHeader("Sec-WebSocket-Accept", accept) => acc.accept = accept
-          case RawHeader("Sec-WebSocket-Protocol", protocal) => acc.protocal :::= protocal.split(',').toList.map(_.trim)
-          case RawHeader("Sec-WebSocket-Extensions", extensions) => acc.extensions ++= parseExtensions(extensions)
+          case RawHeader(name, version) if name.toLowerCase == "sec-websocket-version" => acc.version = version // TODO negotiation
+          case RawHeader(name, key) if name.toLowerCase == "sec-websocket-key" => acc.key = key
+          case RawHeader(name, accept) if name.toLowerCase == "sec-websocket-accept" => acc.accept = accept
+          case RawHeader(name, protocal) if name.toLowerCase == "sec-websocket-protocal" => acc.protocal :::= protocal.split(',').toList.map(_.trim)
+          case RawHeader(name, extensions) if name.toLowerCase == "sec-websocket-extensions" => acc.extensions ++= parseExtensions(extensions)
           case _ =>
         }
         acc
