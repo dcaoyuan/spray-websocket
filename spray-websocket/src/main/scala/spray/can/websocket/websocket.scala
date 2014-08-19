@@ -103,8 +103,8 @@ package object websocket {
         case (acc, Connection(connection)) =>
           acc.connection :::= connection.toList.map(_.trim).map(_.toLowerCase)
           acc
-        case (acc, HttpHeader("upgrade", updade)) =>
-          acc.upgrade :::= updade.split(',').toList.map(_.trim).map(_.toLowerCase)
+        case (acc, HttpHeader("upgrade", upgrade)) =>
+          acc.upgrade :::= upgrade.split(',').toList.map(_.trim).map(_.toLowerCase)
           acc
         case (acc, HttpHeader("sec-websocket-version", version)) =>
           acc.version = version // TODO negotiation
