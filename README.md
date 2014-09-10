@@ -14,18 +14,22 @@ WebSocket for spray-can
    * [Autobahn test reports for client (wss)](http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/clients/index.html)
 
 ## Usage
-The artifact is published to Sonatype, so in order to use it you just have to add the following dependency:
+The artifact is published to Sonatype (cross build with Scala 2.10 and 2.11), so in order to use it you just have to add the following dependency:
 
 ### Stable
 ```scala
-libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.2"
+resolvers += "Spray" at "http://repo.spray.io"
+
+libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.3"
 ```
 
 ### Snapshot
 ```scala
+resolvers += "Spray" at "http://repo.spray.io"
+
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.3-SNAPSHOT"
+libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.4-SNAPSHOT"
 ```
 
 ## Example
