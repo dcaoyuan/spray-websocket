@@ -94,7 +94,7 @@ package object websocket {
 
       var accept = ""
       var key = ""
-      var protocal: List[String] = Nil
+      var protocol: List[String] = Nil
       var extensions = Map[String, Map[String, String]]()
     }
 
@@ -115,8 +115,8 @@ package object websocket {
         case (acc, HttpHeader("sec-websocket-accept", accept)) =>
           acc.accept = accept
           acc
-        case (acc, HttpHeader("sec-websocket-protocal", protocal)) =>
-          acc.protocal :::= protocal.split(',').toList.map(_.trim)
+        case (acc, HttpHeader("sec-websocket-protocol", protocol)) =>
+          acc.protocol :::= protocol.split(',').toList.map(_.trim)
           acc
         case (acc, HttpHeader("sec-websocket-extensions", extensions)) =>
           acc.extensions ++= parseExtensions(extensions)
@@ -182,7 +182,7 @@ package object websocket {
       parseHeaders(headers) match {
         case Some(collector) if acceptedVersions.contains(collector.version) => {
           val key = acceptanceHash(collector.key)
-          val protocols = collector.protocal
+          val protocols = collector.protocol
           val extentions = collector.extensions
 
           val pcme = enabledPCMEs.find(extentions.contains(_)).map(name => PMCE(name, extentions(name))).flatten
@@ -210,7 +210,7 @@ package object websocket {
       parseHeaders(headers) match {
         case Some(collector) => {
           val key = collector.accept
-          val protocols = collector.protocal
+          val protocols = collector.protocol
           val extentions = collector.extensions
 
           val pcme = enabledPCMEs.find(extentions.contains(_)).map(name => PMCE(name, extentions(name))).flatten
@@ -237,7 +237,7 @@ package object websocket {
 
   final case class HandshakeFailure(
       request: HttpRequest,
-      protocal: List[String],
+      protocol: List[String],
       extensions: Map[String, Map[String, String]]) extends HandshakeState {
 
     private def responseHeaders: List[HttpHeader] = List(
@@ -252,7 +252,7 @@ package object websocket {
   case class HandshakeContext(
       request: HttpRequest,
       acceptanceKey: String,
-      protocal: List[String],
+      protocol: List[String],
       extensions: Map[String, Map[String, String]],
       pmce: Option[PMCE]) extends HandshakeState {
 
@@ -269,7 +269,7 @@ package object websocket {
       headers = responseHeaders)
 
     def withResponse(resp: HttpResponse) =
-      new HandshakeContext(request, acceptanceKey, protocal, extensions, pmce) {
+      new HandshakeContext(request, acceptanceKey, protocol, extensions, pmce) {
         override def response = resp
       }
   }
