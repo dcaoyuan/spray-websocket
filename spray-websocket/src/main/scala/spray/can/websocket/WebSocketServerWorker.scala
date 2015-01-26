@@ -9,7 +9,7 @@ import spray.can.websocket
 import spray.can.websocket.frame.Frame
 import spray.can.websocket.frame.FrameStream
 
-trait WebSocketServerWorker extends ActorLogging { _: Actor =>
+trait WebSocketServerWorker extends Actor with ActorLogging {
   /**
    * The HttpServerConnection actor, which holds the pipelines
    */
