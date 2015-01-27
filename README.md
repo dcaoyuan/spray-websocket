@@ -20,7 +20,7 @@ The artifact is published to Sonatype (cross build with Scala 2.10 and 2.11), so
 ```scala
 resolvers += "Spray" at "http://repo.spray.io"
 
-libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.3"
+libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.4"
 ```
 
 ### Snapshot
@@ -29,7 +29,7 @@ resolvers += "Spray" at "http://repo.spray.io"
 
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.4-SNAPSHOT"
+libraryDependencies += "com.wandoulabs.akka" %% "spray-websocket" % "0.1.5-SNAPSHOT"
 ```
 
 ## Example
