@@ -4,7 +4,7 @@ spray-websocket
 WebSocket for spray-can
 
 .. image:: https://travis-ci.org/wandoulabs/spray-websocket.png
-      :target: https://travis-ci.org/wandoulabs/spray-websocket
+   :target: https://travis-ci.org/wandoulabs/spray-websocket
    :alt: spray-websocket build status
 
 Features
@@ -12,14 +12,15 @@ Features
 
 -  Support java.util.zip based per-frame-deflate
 -  Pass all Autobahn test cases (both ws and wss)
--  `Autobahn test reports for server
-   (ws) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/ws/servers/index.html>`__
--  `Autobahn test reports for server
-   (wss) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/servers/index.html>`__
--  `Autobahn test reports for client
-   (ws) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/ws/clients/index.html>`__
--  `Autobahn test reports for client
-   (wss) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/clients/index.html>`__
+
+   -  `Autobahn test reports for server
+      (ws) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/ws/servers/index.html>`__
+   -  `Autobahn test reports for server
+      (wss) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/servers/index.html>`__
+   -  `Autobahn test reports for client
+      (ws) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/ws/clients/index.html>`__
+   -  `Autobahn test reports for client
+      (wss) <http://wandoulabs.github.io/spray-websocket/autobahn-reports/wss/clients/index.html>`__
 
 Usage
 -----
