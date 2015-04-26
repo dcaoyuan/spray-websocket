@@ -105,7 +105,7 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SPRAY_VERSION = "1.3.3"
-  val AKKA_VERSION = "2.3.9"
+  val AKKA_VERSION = "2.3.10"
 
   val spray_can = "io.spray" %% "spray-can" % SPRAY_VERSION
   val spray_routing = "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION
