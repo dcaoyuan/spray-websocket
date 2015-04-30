@@ -13,6 +13,7 @@ import spray.routing.HttpServiceActor
 object SimpleServer extends App with MySslConfiguration {
 
   final case class Push(msg: String)
+  final case class PushToChildren(msg: String)
 
   object WebSocketServer {
     def props() = Props(classOf[WebSocketServer])
@@ -24,6 +25,10 @@ object SimpleServer extends App with MySslConfiguration {
         val serverConnection = sender()
         val conn = context.actorOf(WebSocketWorker.props(serverConnection))
         serverConnection ! Http.Register(conn)
+      case PushToChildren(msg: String) =>
+        val children = context.children
+        println("pushing to all children : " + msg)
+        children.foreach(ref => ref ! Push(msg))
     }
   }
 
@@ -62,7 +67,12 @@ object SimpleServer extends App with MySslConfiguration {
 
     IO(UHttp) ! Http.Bind(server, "localhost", 8080)
 
-    readLine("Hit ENTER to exit ...\n")
+    while (true) {
+      var msg = readLine("Give a message and hit ENTER to push message to the children ...\n")
+      server ! PushToChildren(msg)
+    }
+
+    // Never reached ...
     system.shutdown()
     system.awaitTermination()
   }
