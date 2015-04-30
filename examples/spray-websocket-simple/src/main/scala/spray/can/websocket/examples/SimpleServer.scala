@@ -62,7 +62,7 @@ object SimpleServer extends App with MySslConfiguration {
 
     IO(UHttp) ! Http.Bind(server, "localhost", 8080)
 
-    readLine("Hit ENTER to exit ...\n")
+    scala.io.StdIn.readLine("Hit ENTER to exit ...\n")
     system.shutdown()
     system.awaitTermination()
   }
