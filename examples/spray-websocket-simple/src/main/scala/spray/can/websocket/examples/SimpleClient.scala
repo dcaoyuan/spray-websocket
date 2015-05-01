@@ -98,7 +98,7 @@ object SimpleClient extends App with MySslConfiguration {
       }))
   }
 
-  readLine("Hit ENTER to exit ...\n")
+  scala.io.StdIn.readLine("Hit ENTER to exit ...\n")
   system.shutdown()
   system.awaitTermination()
 }
