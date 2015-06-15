@@ -179,7 +179,9 @@ object TextFrame {
   def unapply(x: TextFrame): Option[ByteString] = Some(x.payload)
 }
 
-final class TextFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload)
+final class TextFrame(_finRsvOp: Byte, _payload: ByteString) extends Frame(_finRsvOp, _payload) {
+  override def toString = _payload.utf8String.take(100)
+}
 
 object TextFrameStream {
   def apply(payload: InputStream): TextFrameStream = TextFrameStream(payload)
