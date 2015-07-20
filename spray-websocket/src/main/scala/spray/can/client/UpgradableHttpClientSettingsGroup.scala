@@ -1,15 +1,17 @@
 package spray.can.client
 
+import akka.io._
+import spray.can.Http.Command
 import spray.can.{ Http, HttpExt }
-import akka.actor.Props
+import akka.actor._
 import spray.can.server.UpgradeSupport
 import spray.can.parsing.SSLSessionInfoSupport
-import spray.io.ConnectionTimeouts
-import spray.io.TickGenerator
-import spray.io.SslTlsSupportPatched
+import spray.io._
 
-class UpgradableHttpClientSettingsGroup(settings: ClientConnectionSettings,
-                                        httpSettings: HttpExt#Settings)
+class UpgradableHttpClientSettingsGroup(
+  settings: ClientConnectionSettings,
+  httpSettings: HttpExt#Settings
+)
     extends HttpClientSettingsGroup(settings, httpSettings) {
   override val pipelineStage = UpgradableHttpClientConnection.pipelineStage(settings)
 
@@ -17,9 +19,35 @@ class UpgradableHttpClientSettingsGroup(settings: ClientConnectionSettings,
     case connect: Http.Connect ⇒
       val commander = sender
       context.actorOf(
-        props = Props(new HttpClientConnection(commander, connect, pipelineStage, settings))
+        props = Props(new HttpClientConnection(commander, connect, pipelineStage, settings) {
+          // WORKAROUND: https://github.com/spray/spray/issues/1060
+          //# final-stages
+          override def baseCommandPipeline(tcpConnection: ActorRef): Pipeline[Command] = {
+            case x @ (_: Tcp.WriteCommand | _: Tcp.CloseCommand) ⇒ tcpConnection ! x
+            case Pipeline.Tell(receiver, msg, sender) ⇒ receiver.tell(msg, sender)
+            case x @ (Tcp.SuspendReading | Tcp.ResumeReading | Tcp.ResumeWriting) ⇒ tcpConnection ! x
+            case _: Droppable ⇒ // don't warn
+            case cmd ⇒ log.warning("command pipeline: dropped " + cmd.getClass)
+          }
+
+          override def baseEventPipeline(tcpConnection: ActorRef): Pipeline[Event] = {
+            case x: Tcp.ConnectionClosed ⇒
+              log.debug("Connection was {}, awaiting TcpConnection termination...", x)
+              context.become {
+                case Terminated(`tcpConnection`) ⇒
+                  log.debug("TcpConnection terminated, stopping")
+                  context.stop(self)
+              }
+
+            case _: Droppable ⇒ // don't warn
+            case ev ⇒ log.warning("event pipeline: dropped " + ev.getClass)
+          }
+          //#
+
+        })
           .withDispatcher(httpSettings.ConnectionDispatcher),
-        name = connectionCounter.next().toString)
+        name = connectionCounter.next().toString
+      )
 
     case Http.CloseAll(cmd) ⇒
       val children = context.children.toSet
