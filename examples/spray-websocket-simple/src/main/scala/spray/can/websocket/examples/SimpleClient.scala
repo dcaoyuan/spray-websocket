@@ -10,6 +10,11 @@ import spray.can.websocket.frame.Frame
 import spray.can.websocket.frame.PongFrame
 import spray.http.{ HttpHeaders, HttpMethods, HttpRequest }
 
+import scala.concurrent.Await
+import scala.io.StdIn
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 /**
  * A simple client for Autobahn test.
  */
@@ -98,7 +103,7 @@ object SimpleClient extends App with MySslConfiguration {
       }))
   }
 
-  readLine("Hit ENTER to exit ...\n")
-  system.shutdown()
-  system.awaitTermination()
+  StdIn.readLine("Hit ENTER to exit ...\n")
+  system.terminate()
+  Await.result(system.whenTerminated, 10 seconds)
 }

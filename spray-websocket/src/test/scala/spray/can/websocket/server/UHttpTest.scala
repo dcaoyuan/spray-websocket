@@ -36,7 +36,7 @@ class UHttpTest extends FunSuite with BeforeAndAfterAll with Eventually with MyS
   implicit val system = ActorSystem("UHttpTestSystem", testConf)
   implicit val timeout = akka.util.Timeout(5.seconds)
 
-  override def afterAll: Unit = system.shutdown()
+  override def afterAll: Unit = system.terminate()
 
   class WebSocketServer extends Actor with ActorLogging {
     def receive = {

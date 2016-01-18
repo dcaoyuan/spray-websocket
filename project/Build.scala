@@ -34,7 +34,7 @@ object Build extends sbt.Build {
   lazy val basicSettings = Seq(
     organization := "com.wandoulabs.akka",
     version := "0.1.5-SNAPSHOT",
-    scalaVersion := "2.11.6",
+    scalaVersion := "2.11.7",
     crossScalaVersions := Seq("2.10.4", "2.11.6"),
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature"),
     resolvers ++= Seq(
@@ -105,14 +105,14 @@ object Build extends sbt.Build {
 
 object Dependencies {
   val SPRAY_VERSION = "1.3.3"
-  val AKKA_VERSION = "2.3.12"
+  val AKKA_VERSION = "2.4.1"
 
   val spray_can = "io.spray" %% "spray-can" % SPRAY_VERSION
   val spray_routing = "io.spray" %% "spray-routing-shapeless2" % SPRAY_VERSION
   val spray_testkit = "io.spray" %% "spray-testkit" % SPRAY_VERSION % "test"
   val akka_actor = "com.typesafe.akka" %% "akka-actor" % AKKA_VERSION
   val akka_testkit = "com.typesafe.akka" %% "akka-testkit" % AKKA_VERSION % "test"
-  val scalatest = "org.scalatest" %% "scalatest" % "2.2.4" % "test"
+  val scalatest = "org.scalatest" %% "scalatest" % "2.2.6" % "test"
   val scalaspecs = "org.specs2" %% "specs2-core" % "2.3.13" % "test"
 
   val all = Seq(spray_can, spray_routing, akka_actor, scalatest, scalaspecs, akka_testkit, spray_testkit)

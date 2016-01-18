@@ -276,7 +276,7 @@ class SslTlsSupportSpec extends Specification with NoTimeConversions {
     }
   }
 
-  step { system.shutdown() }
+  step { system.terminate() }
 
   val counter = new AtomicInteger
 
