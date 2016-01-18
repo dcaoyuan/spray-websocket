@@ -105,5 +105,5 @@ object SimpleClient extends App with MySslConfiguration {
 
   StdIn.readLine("Hit ENTER to exit ...\n")
   system.terminate()
-  Await.result(system.whenTerminated, 10 seconds)
+  Await.result(system.whenTerminated, Duration.Inf)
 }
